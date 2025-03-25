@@ -4,7 +4,8 @@ import { AuthContext } from '../context/AuthContext';
 import { CircularProgress, Box, Typography } from '@mui/material';
 
 function OAuthCallback() {
-  const { setUser } = useContext(AuthContext);
+  // Instead of destructuring setUser, we'll use the available methods
+  const { fetchUserProfile } = useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -18,16 +19,24 @@ function OAuthCallback() {
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
       
-      // Set user authenticated
-      setUser({ isAuthenticated: true });
-      
-      // Redirect to dashboard
-      navigate('/dashboard');
+      // Instead of directly setting the user object, use fetchUserProfile
+      // or simply set a basic authenticated state that matches your app's needs
+      fetchUserProfile()
+        .then(() => {
+          // Redirect to dashboard after successfully fetching the profile
+          navigate('/dashboard');
+        })
+        .catch(error => {
+          console.error('Error fetching user profile:', error);
+          // If fetching profile fails, we can still proceed to dashboard
+          // since we have valid tokens
+          navigate('/dashboard');
+        });
     } else {
       // Handle error
       navigate('/login?error=auth_failed');
     }
-  }, [location, navigate, setUser]);
+  }, [location, navigate, fetchUserProfile]);
   
   return (
     <Box
