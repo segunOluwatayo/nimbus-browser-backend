@@ -5,6 +5,7 @@ const jwtService = require('../services/jwtService');
 const totpService = require('../services/totpService');
 const { sendEmail } = require('../utils/emailService');
 const dotenv = require('dotenv');
+const { OAuth2Client } = require('google-auth-library'); 
 dotenv.config();
 
 // Temporary in-memory store for 2FA secrets (for demonstration purposes only)
@@ -76,8 +77,33 @@ exports.login = async (req, res) => {
 };
 
 exports.googleLogin = (req, res) => {
-  // Placeholder for Google OAuth flow
-  res.status(200).json({ message: "Google login endpoint - to be implemented" });
+  // // Placeholder for Google OAuth flow
+  // res.status(200).json({ message: "Google login endpoint - to be implemented" });
+
+  const client = new OAuth2Client(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    `${process.env.APP_URL}/api/auth/google/callback`
+  );
+
+  const authUrl = client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['profile', 'email']
+  });
+  
+  res.redirect(authUrl);
+};
+
+exports.googleCallback = async (req, res) => {
+  // This would handle the callback from Google with the auth code
+  const code = req.query.code;
+  const {tokens} = await client.getToken(code);
+  const ticket = await client.verifyIdToken({
+    idToken: tokens.id_token,
+    audience: process.env.GOOGLE_CLIENT_ID
+  });
+  const payload = ticket.getPayload();
+  // Here you would handle user creation/login with Google profile
 };
 
 exports.send2fa = async (req, res) => {

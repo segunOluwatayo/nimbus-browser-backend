@@ -82,8 +82,9 @@ function Login() {
   };
 
   const handleGoogleSignIn = () => {
-    // Redirect to the backend endpoint for Google OAuth.
-    window.location.href = process.env.REACT_APP_API_URL + '/api/auth/google';
+    // Use a fallback URL if the environment variable isn't defined
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    window.location.href = `${apiUrl}/api/auth/google`;
   };
 
   const getStrengthColor = () => {
