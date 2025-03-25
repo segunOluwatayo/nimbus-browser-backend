@@ -1,5 +1,5 @@
-
-import React, { useState } from 'react';
+// src/components/ProfileHeader.js
+import React, { useState, useContext } from 'react';
 import { 
   Box, 
   Avatar, 
@@ -14,7 +14,9 @@ import {
   DialogActions,
   useMediaQuery,
   useTheme,
-  Paper
+  Paper,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import { 
   AccountCircle as AccountCircleIcon,
@@ -23,10 +25,12 @@ import {
   PhotoCamera as PhotoCameraIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
+import { AuthContext } from '../context/AuthContext';
 
 const ProfileHeader = ({ user, onLogout }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { uploadProfilePicture, deleteProfilePicture, isLoading } = useContext(AuthContext);
   
   // State for the profile menu
   const [anchorEl, setAnchorEl] = useState(null);
@@ -34,11 +38,14 @@ const ProfileHeader = ({ user, onLogout }) => {
   // State for the photo dialog
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
   
-  // State for the profile picture
-  const [profilePicture, setProfilePicture] = useState(null);
-  
   // State for the temporary selected picture (before saving)
   const [tempProfilePicture, setTempProfilePicture] = useState(null);
+  
+  // State for error handling
+  const [error, setError] = useState('');
+  
+  // State for selected file
+  const [selectedFile, setSelectedFile] = useState(null);
   
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -50,17 +57,37 @@ const ProfileHeader = ({ user, onLogout }) => {
   
   const handlePhotoDialogOpen = () => {
     setPhotoDialogOpen(true);
-    setTempProfilePicture(profilePicture);
+    setTempProfilePicture(user?.profilePicture || null);
+    setError('');
+    setSelectedFile(null);
   };
   
   const handlePhotoDialogClose = () => {
     setPhotoDialogOpen(false);
     setTempProfilePicture(null);
+    setError('');
+    setSelectedFile(null);
   };
   
   const handlePhotoUpload = (event) => {
     const file = event.target.files[0];
     if (file) {
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('File size exceeds 5MB limit');
+        return;
+      }
+      
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        setError('Only image files are allowed');
+        return;
+      }
+      
+      setError('');
+      setSelectedFile(file);
+      
+      // Preview the image
       const reader = new FileReader();
       reader.onload = (e) => {
         setTempProfilePicture(e.target.result);
@@ -71,13 +98,25 @@ const ProfileHeader = ({ user, onLogout }) => {
   
   const handleRemovePhoto = () => {
     setTempProfilePicture(null);
+    setSelectedFile(null);
   };
   
-  const handleSavePhoto = () => {
-    setProfilePicture(tempProfilePicture);
-    setPhotoDialogOpen(false);
-    // Here you would typically upload the photo to the server
-    // and update the user profile
+  const handleSavePhoto = async () => {
+    try {
+      setError('');
+      
+      if (selectedFile) {
+        // Upload new profile picture
+        await uploadProfilePicture(selectedFile);
+      } else if (tempProfilePicture === null && user?.profilePicture) {
+        // Delete existing profile picture
+        await deleteProfilePicture();
+      }
+      
+      setPhotoDialogOpen(false);
+    } catch (err) {
+      setError(err.message || 'Failed to update profile picture');
+    }
   };
   
   const displayName = user?.name || user?.email || 'User';
@@ -100,7 +139,7 @@ const ProfileHeader = ({ user, onLogout }) => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Avatar 
-            src={profilePicture} 
+            src={user?.profilePicture || ''} 
             alt={displayName}
             sx={{ 
               width: 56, 
@@ -148,7 +187,10 @@ const ProfileHeader = ({ user, onLogout }) => {
               horizontal: 'right',
             }}
           >
-            <MenuItem onClick={onLogout}>
+            <MenuItem onClick={() => {
+              handleMenuClose();
+              onLogout();
+            }}>
               <ExitToAppIcon fontSize="small" sx={{ mr: 1 }} />
               Sign out
             </MenuItem>
@@ -159,6 +201,12 @@ const ProfileHeader = ({ user, onLogout }) => {
         <Dialog open={photoDialogOpen} onClose={handlePhotoDialogClose} maxWidth="xs" fullWidth>
           <DialogTitle>Profile Picture</DialogTitle>
           <DialogContent>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 2 }}>
               <Avatar 
                 src={tempProfilePicture} 
@@ -177,6 +225,7 @@ const ProfileHeader = ({ user, onLogout }) => {
                   variant="contained"
                   component="label"
                   startIcon={<PhotoCameraIcon />}
+                  disabled={isLoading}
                 >
                   Add Photo
                   <input
@@ -191,7 +240,7 @@ const ProfileHeader = ({ user, onLogout }) => {
                   color="error"
                   onClick={handleRemovePhoto}
                   startIcon={<DeleteIcon />}
-                  disabled={!tempProfilePicture}
+                  disabled={!tempProfilePicture || isLoading}
                 >
                   Remove
                 </Button>
@@ -199,9 +248,14 @@ const ProfileHeader = ({ user, onLogout }) => {
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handlePhotoDialogClose}>Cancel</Button>
-            <Button onClick={handleSavePhoto} variant="contained" color="primary">
-              Save
+            <Button onClick={handlePhotoDialogClose} disabled={isLoading}>Cancel</Button>
+            <Button 
+              onClick={handleSavePhoto} 
+              variant="contained" 
+              color="primary"
+              disabled={isLoading}
+            >
+              {isLoading ? <CircularProgress size={24} /> : 'Save'}
             </Button>
           </DialogActions>
         </Dialog>
