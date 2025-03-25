@@ -13,7 +13,6 @@ app.use(express.json());
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
-
 // Apply security middleware
 securityMiddleware(app);
 
@@ -25,8 +24,16 @@ app.get('/', (req, res) => {
   res.send('Nimbus Browser Backend is running.');
 });
 
-// Start the server
+// Create HTTP server
+const http = require('http');
+const server = http.createServer(app);
+
+// Import and set up Socket.io synchronization
+const setupSyncSocket = require('./sockets/syncSocket');
+setupSyncSocket(server);
+
+// Start the server using the HTTP server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
