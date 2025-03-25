@@ -1,0 +1,23 @@
+{
+  "name": "nimbus-browser-backend",
+  "version": "1.0.0",
+  "description": "Nimbus Browser Backend with Cross-Device Synchronization",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^10.0.0",
+    "express": "^4.17.1",
+    "express-rate-limit": "^5.5.1",
+    "helmet": "^4.6.0",
+    "mongoose": "^6.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.15"
+  },
+  "author": "",
+  "license": "ISC"
+}
