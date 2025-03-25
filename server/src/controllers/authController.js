@@ -108,7 +108,7 @@ exports.googleCallback = async (req, res) => {
   try {
     const code = req.query.code;
     const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-    const frontendUrl = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3001';
+    let frontendUrl = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3001';
     
     const client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
@@ -164,6 +164,7 @@ exports.googleCallback = async (req, res) => {
     await tokenEntry.save();
     
     // Redirect to frontend with tokens
+    // Using the same frontendUrl variable, but now with let instead of const
     frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
     
