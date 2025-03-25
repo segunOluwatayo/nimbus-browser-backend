@@ -29,19 +29,30 @@ function Dashboard() {
 
   useEffect(() => {
     const loadUserProfile = async () => {
+      setLoading(true);
       try {
         const userData = await fetchUserProfile();
-        setProfileData(userData);
-        setDisplayName(userData?.name || '');
+        // Only update state if we got valid data
+        if (userData && (userData.name || userData.email)) {
+          setProfileData(userData);
+          setDisplayName(userData?.name || '');
+        }
       } catch (error) {
         console.error('Failed to load user profile:', error);
+        // If profile fetch fails, redirect to login
+        navigate('/');
       } finally {
         setLoading(false);
       }
     };
-
+  
     loadUserProfile();
-  }, [fetchUserProfile]);
+  }, [fetchUserProfile, navigate]);
+  
+  // Then update the userData variable creation:
+   userData = profileData || user || {};
+  // Check if we have meaningful user data
+  const hasUserData = userData && (userData.name || userData.email);
 
   const handleLogout = () => {
     logout();
