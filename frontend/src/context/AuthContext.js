@@ -9,6 +9,34 @@ export const AuthProvider = ({ children }) => {
   const [tempUserEmail, setTempUserEmail] = useState(null); // Store email temporarily for 2FA flow
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
+  // Token refresh function
+  const refreshAccessToken = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (!refreshToken) {
+        return false;
+      }
+      
+      const response = await fetch(`${apiUrl}/api/auth/token/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      
+      if (!response.ok) {
+        return false;
+      }
+      
+      const data = await response.json();
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      return true;
+    } catch (error) {
+      console.error("Error refreshing token:", error);
+      return false;
+    }
+  };
+
   // Fetch user profile using a secure cookie (HttpOnly cookie is sent automatically)
   const fetchUserProfile = async () => {
     try {
@@ -23,6 +51,30 @@ export const AuthProvider = ({ children }) => {
           'Authorization': `Bearer ${accessToken}`
         }
       });
+      
+      // If unauthorized, try to refresh the token and fetch again
+      if (response.status === 401) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          // Try again with the new token
+          const newAccessToken = localStorage.getItem('accessToken');
+          const retryResponse = await fetch(`${apiUrl}/api/users/me`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${newAccessToken}`
+            }
+          });
+          
+          if (retryResponse.ok) {
+            const userData = await retryResponse.json();
+            setUser(userData);
+            return userData;
+          }
+        }
+        // If refresh failed or retry failed, log out user
+        logout();
+        throw new Error("Session expired. Please login again.");
+      }
       
       if (!response.ok) {
         throw new Error("Failed to fetch user profile");
@@ -57,6 +109,29 @@ export const AuthProvider = ({ children }) => {
         body: formData
       });
       
+      if (response.status === 401) {
+        // Try refreshing the token if unauthorized
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          const newResponse = await fetch(`${apiUrl}/api/users/profile-picture`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            },
+            body: formData
+          });
+          
+          if (newResponse.ok) {
+            const data = await newResponse.json();
+            setUser(data.user);
+            setIsLoading(false);
+            return data.user;
+          }
+        }
+        // If refresh failed, throw error
+        throw new Error("Session expired. Please login again.");
+      }
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || "Failed to upload profile picture");
@@ -88,6 +163,28 @@ export const AuthProvider = ({ children }) => {
           'Authorization': `Bearer ${accessToken}`
         }
       });
+      
+      if (response.status === 401) {
+        // Try refreshing the token if unauthorized
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          const newResponse = await fetch(`${apiUrl}/api/users/profile-picture`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+            }
+          });
+          
+          if (newResponse.ok) {
+            const data = await newResponse.json();
+            setUser(data.user);
+            setIsLoading(false);
+            return data.user;
+          }
+        }
+        // If refresh failed, throw error
+        throw new Error("Session expired. Please login again.");
+      }
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -202,8 +299,9 @@ export const AuthProvider = ({ children }) => {
       // Remove temporary password
       localStorage.removeItem('tempPassword');
       
-      // Set user based on decoded token or fetch profile
-      setUser({ email: tempUserEmail });
+      // Fetch the complete user profile
+      await fetchUserProfile();
+      
       setRequires2FA(false);
       setTempUserEmail(null);
       setIsLoading(false);
@@ -235,7 +333,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Signup failed');
       }
       
-      // Store password temporarily for after 2FA verification
+      // Store password temporarily for 2FA verification process
       localStorage.setItem('tempPassword', password);
       
       // Instead of immediately setting tokens and user, we need to trigger 2FA
@@ -286,17 +384,27 @@ export const AuthProvider = ({ children }) => {
     setTempUserEmail(null);
   };
 
-  // On mount, check if we have tokens in localStorage and set the user
+  // On mount, check if we have tokens in localStorage and fetch user profile
   useEffect(() => {
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
     
     if (accessToken && refreshToken) {
-      // We have tokens, let's fetch the user profile or at least set a basic user state
-      fetchUserProfile().catch(() => {
-        // If fetching profile fails, we can try to decode the JWT token locally
-        // For simplicity, just set a placeholder user object for now
-        setUser({ isAuthenticated: true });
+      fetchUserProfile().catch(async (err) => {
+        // If fetching profile fails, try to refresh the token once
+        if (await refreshAccessToken()) {
+          // If token refresh succeeds, try fetching profile again
+          try {
+            await fetchUserProfile();
+          } catch (secondErr) {
+            // If it still fails, just set a fallback authenticated state
+            console.error("Failed to fetch profile after token refresh:", secondErr);
+            setUser({ isAuthenticated: true });
+          }
+        } else {
+          // If token refresh fails, log user out
+          logout();
+        }
       });
     }
   }, []);
