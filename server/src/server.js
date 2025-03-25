@@ -4,11 +4,20 @@ dotenv.config();
 
 const connectDB = require('./config/db');
 const securityMiddleware = require('./middleware/security');
+const bookmarkRoutes = require('./routes/bookmarkRoutes');
+const tabRoutes = require('./routes/tabRoutes');
+const historyRoutes = require('./routes/historyRoutes');
+const passwordRoutes = require('./routes/passwordRoutes');
 
 const app = express();
 
 // Middleware to parse JSON
 app.use(express.json());
+
+app.use('/api/bookmarks', bookmarkRoutes);
+app.use('/api/tabs', tabRoutes);
+app.use('/api/history', historyRoutes);
+app.use('/api/passwords', passwordRoutes);
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
