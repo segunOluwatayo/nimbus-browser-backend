@@ -5,7 +5,7 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3001";
+  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
   // Fetch user profile using a secure cookie (HttpOnly cookie is sent automatically)
   const fetchUserProfile = async () => {
@@ -98,21 +98,39 @@ export const AuthProvider = ({ children }) => {
   // Logout: Invalidate the session on the backend and clear the user state.
   const logout = async () => {
     try {
-      await fetch(`${apiUrl}/api/auth/logout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({}),
-      });
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        await fetch(`${apiUrl}/api/auth/logout`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
+      }
+      // Clear local storage tokens
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
     } catch (error) {
       console.error("Logout error:", error);
     }
     setUser(null);
   };
 
-  // On mount, attempt to fetch the user profile to determine if already logged in.
+  // On mount, check if we have tokens in localStorage and set the user
   useEffect(() => {
-    fetchUserProfile();
+    const accessToken = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    if (accessToken && refreshToken) {
+      // We have tokens, let's fetch the user profile or at least set a basic user state
+      fetchUserProfile().catch(() => {
+        // If fetching profile fails, we can try to decode the JWT token locally
+        // For simplicity, just set a placeholder user object for now
+        setUser({ isAuthenticated: true });
+      });
+    }
   }, []);
 
   return (
