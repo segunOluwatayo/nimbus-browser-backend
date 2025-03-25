@@ -385,27 +385,40 @@ export const AuthProvider = ({ children }) => {
   };
 
   // On mount, check if we have tokens in localStorage and fetch user profile
-  useEffect(() => {
+  // Update the useEffect in AuthContext.js
+useEffect(() => {
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
     
     if (accessToken && refreshToken) {
-      fetchUserProfile().catch(async (err) => {
-        // If fetching profile fails, try to refresh the token once
-        if (await refreshAccessToken()) {
-          // If token refresh succeeds, try fetching profile again
-          try {
-            await fetchUserProfile();
-          } catch (secondErr) {
-            // If it still fails, just set a fallback authenticated state
-            console.error("Failed to fetch profile after token refresh:", secondErr);
-            setUser({ isAuthenticated: true });
+      // Set loading state while fetching profile
+      setIsLoading(true);
+      
+      fetchUserProfile()
+        .then(userData => {
+          // Successfully fetched user data
+          setIsLoading(false);
+        })
+        .catch(async (err) => {
+          console.error("Error fetching user profile:", err);
+          
+          // If fetching profile fails, try to refresh the token once
+          if (await refreshAccessToken()) {
+            // If token refresh succeeds, try fetching profile again
+            try {
+              await fetchUserProfile();
+            } catch (secondErr) {
+              // If it still fails, logout instead of setting incomplete user state
+              console.error("Failed to fetch profile after token refresh:", secondErr);
+              logout();
+            }
+          } else {
+            // If token refresh fails, log user out
+            logout();
           }
-        } else {
-          // If token refresh fails, log user out
-          logout();
-        }
-      });
+          
+          setIsLoading(false);
+        });
     }
   }, []);
 
