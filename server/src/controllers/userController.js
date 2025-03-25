@@ -52,6 +52,37 @@ exports.getUserProfile = async (req, res) => {
   }
 };
 
+// Update user profile
+exports.updateUserProfile = async (req, res) => {
+  try {
+    const { name } = req.body;
+    
+    // Validate input
+    if (name && (typeof name !== 'string' || name.length > 50)) {
+      return res.status(400).json({ message: "Invalid name format" });
+    }
+    
+    // Find and update the user
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { name } },
+      { new: true }
+    ).select('-password');
+    
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    res.status(200).json({ 
+      message: "Profile updated successfully", 
+      user: updatedUser 
+    });
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 // Upload profile picture
 exports.uploadProfilePicture = async (req, res) => {
   try {
