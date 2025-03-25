@@ -10,6 +10,10 @@ const app = express();
 // Middleware to parse JSON
 app.use(express.json());
 
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth', authRoutes);
+
+
 // Apply security middleware
 securityMiddleware(app);
 
