@@ -9,6 +9,9 @@ router.use(authMiddleware);
 // Get user profile
 router.get('/me', userController.getUserProfile);
 
+// Update user profile
+router.put('/me', userController.updateUserProfile);
+
 // Profile picture routes
 router.post('/profile-picture', userController.uploadMiddleware, userController.uploadProfilePicture);
 router.delete('/profile-picture', userController.deleteProfilePicture);
