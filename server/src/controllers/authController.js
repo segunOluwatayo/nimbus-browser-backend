@@ -13,14 +13,18 @@ const TWO_FA_TEMP_STORE = {};
 
 exports.signup = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, name } = req.body;
     // Check if user already exists
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: "User already exists" });
 
     // Hash password and create user
     const hashedPassword = await bcrypt.hash(password, 10);
-    user = new User({ email, password: hashedPassword });
+    user = new User({ 
+      email, 
+      password: hashedPassword,
+      name: name || '' // Add name if provided
+    });
     await user.save();
 
     // Generate tokens after successful signup (similar to login)
@@ -126,7 +130,7 @@ exports.googleCallback = async (req, res) => {
     });
     
     const payload = ticket.getPayload();
-    const { email, sub: googleId } = payload;
+    const { email, name, sub: googleId } = payload;
     
     // Check if the user exists
     let user = await User.findOne({ email });
@@ -139,14 +143,26 @@ exports.googleCallback = async (req, res) => {
       user = new User({
         email,
         password: hashedPassword,
+        name,
         googleId
       });
       
       await user.save();
     } else {
-      // Update googleId if it doesn't exist
+      // Update googleId and name if they don't exist
+      let updated = false;
+      
       if (!user.googleId) {
         user.googleId = googleId;
+        updated = true;
+      }
+      
+      if (!user.name && name) {
+        user.name = name;
+        updated = true;
+      }
+      
+      if (updated) {
         await user.save();
       }
     }
@@ -164,7 +180,6 @@ exports.googleCallback = async (req, res) => {
     await tokenEntry.save();
     
     // Redirect to frontend with tokens
-    // Using the same frontendUrl variable, but now with let instead of const
     frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
     

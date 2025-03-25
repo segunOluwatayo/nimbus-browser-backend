@@ -5,6 +5,8 @@ export const AuthContext = createContext();
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [requires2FA, setRequires2FA] = useState(false);
+  const [tempUserEmail, setTempUserEmail] = useState(null); // Store email temporarily for 2FA flow
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
   // Fetch user profile using a secure cookie (HttpOnly cookie is sent automatically)
@@ -55,15 +57,90 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Login failed');
       }
       
+      // Instead of immediately setting tokens and user, we need to trigger 2FA
+      setTempUserEmail(email);
+      setRequires2FA(true);
+      setIsLoading(false);
+      
+      // Initiate 2FA process
+      await send2FACode(email);
+      
+      return data;
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  // Send 2FA code to user's email
+  const send2FACode = async (email) => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/auth/2fa/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send 2FA code');
+      }
+      
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      setIsLoading(false);
+      console.error("Error sending 2FA code:", error);
+      throw error;
+    }
+  };
+
+  // Verify 2FA code
+  const verify2FACode = async (token) => {
+    setIsLoading(true);
+    try {
+      if (!tempUserEmail) {
+        throw new Error("No user email found for 2FA verification");
+      }
+      
+      const response = await fetch(`${apiUrl}/api/auth/2fa/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: tempUserEmail, token }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid 2FA code');
+      }
+      
+      // Now complete the login/signup process
+      const authResponse = await fetch(`${apiUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: tempUserEmail, password: localStorage.getItem('tempPassword') }),
+      });
+      
+      const authData = await authResponse.json();
+      if (!authResponse.ok) {
+        throw new Error(authData.message || 'Authentication failed after 2FA');
+      }
+      
       // Store tokens in localStorage
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
+      localStorage.setItem('accessToken', authData.accessToken);
+      localStorage.setItem('refreshToken', authData.refreshToken);
+      
+      // Remove temporary password
+      localStorage.removeItem('tempPassword');
       
       // Set user based on decoded token or fetch profile
-      // For now, let's just set a simple user object
-      setUser({ email });
+      setUser({ email: tempUserEmail });
+      setRequires2FA(false);
+      setTempUserEmail(null);
       setIsLoading(false);
-      return data;
+      
+      return true;
     } catch (error) {
       setIsLoading(false);
       throw error;
@@ -90,18 +167,29 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Signup failed');
       }
       
-      // Store tokens
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
+      // Store password temporarily for after 2FA verification
+      localStorage.setItem('tempPassword', password);
       
-      // Set user
-      setUser({ email });
+      // Instead of immediately setting tokens and user, we need to trigger 2FA
+      setTempUserEmail(email);
+      setRequires2FA(true);
       setIsLoading(false);
+      
+      // Initiate 2FA process
+      await send2FACode(email);
+      
       return data;
     } catch (error) {
       setIsLoading(false);
       throw error;
     }
+  };
+
+  // Reset 2FA state (for cancellation or timeout)
+  const reset2FAState = () => {
+    setRequires2FA(false);
+    setTempUserEmail(null);
+    localStorage.removeItem('tempPassword');
   };
 
   // Logout: Invalidate the session on the backend and clear the user state.
@@ -121,10 +209,13 @@ export const AuthProvider = ({ children }) => {
       // Clear local storage tokens
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('tempPassword');
     } catch (error) {
       console.error("Logout error:", error);
     }
     setUser(null);
+    setRequires2FA(false);
+    setTempUserEmail(null);
   };
 
   // On mount, check if we have tokens in localStorage and set the user
@@ -143,7 +234,19 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, fetchUserProfile, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      signup, 
+      logout, 
+      fetchUserProfile, 
+      isLoading,
+      requires2FA,
+      send2FACode,
+      verify2FACode,
+      reset2FAState,
+      tempUserEmail
+    }}>
       {children}
     </AuthContext.Provider>
   );

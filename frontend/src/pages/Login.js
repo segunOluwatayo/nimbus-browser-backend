@@ -28,6 +28,7 @@ import {
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import TwoFactorAuth from '../components/TwoFactorAuth';
 
 function getPasswordStrength(password) {
   if (password.length < 8) return { strength: 'Weak', score: 1 };
@@ -41,7 +42,16 @@ function getPasswordStrength(password) {
 }
 
 function Login() {
-  const { login, signup, isLoading } = useContext(AuthContext);
+  const { 
+    login, 
+    signup, 
+    isLoading, 
+    requires2FA, 
+    verify2FACode, 
+    reset2FAState, 
+    send2FACode,
+    tempUserEmail 
+  } = useContext(AuthContext);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -58,11 +68,30 @@ function Login() {
     setPasswordStrength(getPasswordStrength(password));
   }, [password]);
 
+  // If we need to cancel 2FA flow
+  const handleCancel2FA = () => {
+    reset2FAState();
+  };
+
+  // Handle 2FA verification
+  const handle2FAVerify = async (code) => {
+    try {
+      await verify2FACode(code);
+      // If verification is successful, navigate to dashboard
+      navigate('/dashboard');
+    } catch (err) {
+      throw err; // Let the TwoFactorAuth component handle the error
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
     try {
+      // Store password temporarily for 2FA verification process
+      localStorage.setItem('tempPassword', password);
+      
       if (isSignUp) {
         // Validate password strength during sign up
         if (passwordStrength.strength === 'Weak') {
@@ -70,10 +99,10 @@ function Login() {
         }
         
         await signup({ email, password });
-        navigate('/dashboard');
+        // Don't navigate yet - we'll wait for 2FA verification
       } else {
         await login({ email, password });
-        navigate('/dashboard');
+        // Don't navigate yet - we'll wait for 2FA verification
       }
     } catch (err) {
       console.error('Authentication error:', err);
@@ -99,6 +128,24 @@ function Login() {
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
+
+  // If 2FA is required, show the 2FA component
+  if (requires2FA) {
+    return (
+      <Container maxWidth="sm" sx={{ 
+        marginTop: isMobile ? '2rem' : '4rem', 
+        padding: isMobile ? '1rem' : '2rem' 
+      }}>
+        <TwoFactorAuth 
+          onVerify={handle2FAVerify}
+          onCancel={handleCancel2FA}
+          email={tempUserEmail}
+          resendCode={send2FACode}
+          isLoading={isLoading}
+        />
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="sm" sx={{ 
