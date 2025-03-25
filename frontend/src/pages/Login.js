@@ -1,27 +1,58 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { Container, Typography, TextField, Button, Link, CircularProgress, Box } from '@mui/material';
+import { 
+  Container, 
+  Typography, 
+  TextField, 
+  Button, 
+  Link, 
+  CircularProgress, 
+  Box, 
+  Paper, 
+  Divider,
+  IconButton,
+  InputAdornment,
+  LinearProgress,
+  Checkbox,
+  FormControlLabel,
+  useTheme,
+  useMediaQuery
+} from '@mui/material';
+import { 
+  Email as EmailIcon, 
+  Lock as LockIcon, 
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+  Google as GoogleIcon
+} from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 
 function getPasswordStrength(password) {
-  if (password.length < 8) return 'Weak';
+  if (password.length < 8) return { strength: 'Weak', score: 1 };
   const hasLetters = /[A-Za-z]/.test(password);
   const hasNumbers = /[0-9]/.test(password);
   const hasSpecial = /[!@#$%^&*]/.test(password);
-  if (hasLetters && hasNumbers && hasSpecial) return 'Strong';
-  if (hasLetters && hasNumbers) return 'Medium';
-  return 'Weak';
+  
+  if (hasLetters && hasNumbers && hasSpecial) return { strength: 'Strong', score: 3 };
+  if (hasLetters && hasNumbers) return { strength: 'Medium', score: 2 };
+  return { strength: 'Weak', score: 1 };
 }
 
 function Login() {
   const { login, signup } = useContext(AuthContext);
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState({ strength: '', score: 0 });
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   useEffect(() => {
     setPasswordStrength(getPasswordStrength(password));
@@ -34,7 +65,7 @@ function Login() {
     try {
       if (isSignUp) {
         // Validate password strength during sign up
-        if (passwordStrength === 'Weak') {
+        if (passwordStrength.strength === 'Weak') {
           throw new Error('Password strength is weak. Please choose a stronger password.');
         }
         await signup({ email, password });
@@ -54,63 +85,285 @@ function Login() {
     window.location.href = process.env.REACT_APP_API_URL + '/api/auth/google';
   };
 
+  const getStrengthColor = () => {
+    switch(passwordStrength.strength) {
+      case 'Strong': return theme.palette.success.main;
+      case 'Medium': return theme.palette.warning.main;
+      case 'Weak': return theme.palette.error.main;
+      default: return theme.palette.grey[500];
+    }
+  };
+
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
-    <Container maxWidth="sm" style={{ marginTop: '4rem', textAlign: 'center' }}>
-      <Typography variant="h4" gutterBottom>
-        Continue to your Nimbus account
-      </Typography>
-      <Typography variant="body1" gutterBottom>
-        Sync your passwords, tabs, history, and bookmarks everywhere you use.
-      </Typography>
-      <Box mt={2}>
-        <Button variant="outlined" color="primary" fullWidth onClick={handleGoogleSignIn}>
-          Sign in with Google
-        </Button>
-      </Box>
-      <Typography variant="body2" style={{ margin: '1rem 0' }}>
-        Or use your email
-      </Typography>
-      <form onSubmit={handleSubmit}>
-        <TextField
-          label="Email"
-          type="email"
-          fullWidth
-          margin="normal"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        <TextField
-          label="Password"
-          type="password"
-          fullWidth
-          margin="normal"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-        {isSignUp && (
-          <Typography variant="caption" display="block" style={{ textAlign: 'left', marginTop: '0.5rem' }}>
-            Password Strength: {passwordStrength}
-          </Typography>
-        )}
-        {error && (
-          <Typography variant="body2" color="error" style={{ marginTop: '0.5rem' }}>
-            {error}
-          </Typography>
-        )}
-        <Box mt={2}>
-          <Button type="submit" variant="contained" color="primary" fullWidth disabled={loading}>
-            {loading ? <CircularProgress size={24} /> : (isSignUp ? 'Sign Up' : 'Sign In')}
-          </Button>
-        </Box>
-      </form>
-      <Typography variant="body2" style={{ marginTop: '1rem' }}>
-        {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
-        <Link component="button" variant="body2" onClick={() => setIsSignUp(!isSignUp)}>
-          {isSignUp ? 'Sign In' : 'Sign Up'}
-        </Link>
-      </Typography>
+    <Container maxWidth="sm" sx={{ 
+      marginTop: isMobile ? '2rem' : '4rem', 
+      padding: isMobile ? '1rem' : '2rem' 
+    }}>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Paper 
+          elevation={3} 
+          sx={{ 
+            padding: isMobile ? '1.5rem' : '2.5rem',
+            borderRadius: '12px'
+          }}
+        >
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {/* You can add your logo here */}
+            <Typography 
+              variant="h4" 
+              gutterBottom 
+              sx={{ 
+                fontWeight: 'bold',
+                color: theme.palette.primary.main
+              }}
+            >
+              Nimbus
+            </Typography>
+            
+            <Typography 
+              variant="h5" 
+              gutterBottom 
+              sx={{ 
+                marginBottom: '0.5rem',
+                textAlign: 'center'
+              }}
+            >
+              {isSignUp ? 'Create your account' : 'Welcome back'}
+            </Typography>
+            
+            <Typography 
+              variant="body1" 
+              sx={{ 
+                marginBottom: '1.5rem',
+                textAlign: 'center',
+                color: theme.palette.text.secondary
+              }}
+            >
+              Sync your passwords, tabs, history, and bookmarks everywhere you use.
+            </Typography>
+
+            <Button 
+              variant="outlined" 
+              fullWidth 
+              onClick={handleGoogleSignIn}
+              startIcon={<GoogleIcon />}
+              sx={{ 
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                textTransform: 'none',
+                fontSize: '1rem'
+              }}
+            >
+              Sign in with Google
+            </Button>
+
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                width: '100%', 
+                margin: '1.5rem 0' 
+              }}
+            >
+              <Divider sx={{ flexGrow: 1 }} />
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  margin: '0 1rem',
+                  color: theme.palette.text.secondary
+                }}
+              >
+                OR
+              </Typography>
+              <Divider sx={{ flexGrow: 1 }} />
+            </Box>
+
+            <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+              <TextField
+                label="Email"
+                type="email"
+                fullWidth
+                margin="normal"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ 
+                  marginBottom: '1rem',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+              
+              <TextField
+                label="Password"
+                type={showPassword ? 'text' : 'password'}
+                fullWidth
+                margin="normal"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                variant="outlined"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockIcon color="action" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label="toggle password visibility"
+                        onClick={togglePasswordVisibility}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }}
+                sx={{ 
+                  marginBottom: '0.5rem',
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px'
+                  }
+                }}
+              />
+              
+              {isSignUp && password && (
+                <Box sx={{ width: '100%', marginBottom: '1rem' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: getStrengthColor()
+                      }}
+                    >
+                      Password Strength: {passwordStrength.strength}
+                    </Typography>
+                    <Typography variant="caption">
+                      {password.length}/8+ characters
+                    </Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={passwordStrength.score * 33.3} 
+                    sx={{ 
+                      marginTop: '0.5rem',
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: theme.palette.grey[200],
+                      '& .MuiLinearProgress-bar': {
+                        backgroundColor: getStrengthColor()
+                      }
+                    }}
+                  />
+                </Box>
+              )}
+              
+              {!isSignUp && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox 
+                        checked={rememberMe} 
+                        onChange={(e) => setRememberMe(e.target.checked)} 
+                        color="primary"
+                        size="small"
+                      />
+                    }
+                    label={<Typography variant="body2">Remember me</Typography>}
+                  />
+                  <Link 
+                    component="button" 
+                    variant="body2" 
+                    type="button"
+                    onClick={() => console.log('Forgot password clicked')}
+                    sx={{ textDecoration: 'none' }}
+                  >
+                    Forgot password?
+                  </Link>
+                </Box>
+              )}
+              
+              {error && (
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: theme.palette.error.main,
+                    marginTop: '0.5rem',
+                    marginBottom: '0.5rem',
+                    padding: '0.5rem',
+                    backgroundColor: theme.palette.error.light,
+                    borderRadius: '4px',
+                    opacity: 0.8
+                  }}
+                >
+                  {error}
+                </Typography>
+              )}
+              
+              <Button 
+                type="submit" 
+                variant="contained" 
+                color="primary" 
+                fullWidth 
+                disabled={loading}
+                sx={{ 
+                  marginTop: '1rem',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '8px',
+                  textTransform: 'none',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                {loading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  isSignUp ? 'Create Account' : 'Sign In'
+                )}
+              </Button>
+            </form>
+            
+            <Box sx={{ marginTop: '1.5rem', textAlign: 'center' }}>
+              <Typography variant="body2" color="textSecondary">
+                {isSignUp ? 'Already have an account?' : "Don't have an account?"}{' '}
+                <Link 
+                  component="button" 
+                  variant="body2" 
+                  onClick={() => {
+                    setIsSignUp(!isSignUp);
+                    setError('');
+                  }}
+                  sx={{ 
+                    fontWeight: 'bold',
+                    textDecoration: 'none'
+                  }}
+                >
+                  {isSignUp ? 'Sign In' : 'Sign Up'}
+                </Link>
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+      </motion.div>
     </Container>
   );
 }
