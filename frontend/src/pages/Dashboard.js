@@ -1,8 +1,9 @@
 // src/pages/Dashboard.js
 import React, { useContext, useEffect, useState } from 'react';
-import { Container, Typography, Button, CircularProgress } from '@mui/material';
+import { Container, Typography, CircularProgress, Box, Paper } from '@mui/material';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import ProfileHeader from '../components/ProfileHeader';
 
 function Dashboard() {
   const { user, logout, fetchUserProfile } = useContext(AuthContext);
@@ -25,39 +26,51 @@ function Dashboard() {
     loadUserProfile();
   }, [fetchUserProfile]);
 
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   if (loading) {
     return (
-      <Container maxWidth="sm" style={{ marginTop: '2rem', textAlign: 'center' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
         <CircularProgress />
-        <Typography variant="body1" style={{ marginTop: '1rem' }}>
+        <Typography variant="body1" sx={{ mt: 2 }}>
           Loading your profile...
         </Typography>
-      </Container>
+      </Box>
     );
   }
 
   // Use profileData if available, otherwise fall back to user from context
-  const displayName = profileData?.name || user?.name || user?.email || 'User';
+  const userData = profileData || user || {};
 
   return (
-    <Container maxWidth="sm" style={{ marginTop: '2rem' }}>
-      <Typography variant="h4" gutterBottom>
-        Dashboard
-      </Typography>
-      <Typography variant="body1" gutterBottom>
-        Welcome, {displayName}!
-      </Typography>
-      <Button
-        variant="contained"
-        color="secondary"
-        onClick={() => {
-          logout();
-          navigate('/');
-        }}
-      >
-        Logout
-      </Button>
-    </Container>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <ProfileHeader 
+        user={userData} 
+        onLogout={handleLogout} 
+      />
+      <Container maxWidth="lg" sx={{ flexGrow: 1 }}>
+        <Typography variant="h4" gutterBottom>
+          Dashboard
+        </Typography>
+        <Typography variant="body1" paragraph>
+          Welcome to your Nimbus Browser synchronization dashboard. 
+          Here you can manage all your synchronized data across devices.
+        </Typography>
+        
+        {/* Dashboard content goes here */}
+        <Paper sx={{ p: 3, mt: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Recent Activity
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Your synchronized data will appear here. Stay connected across all your devices.
+          </Typography>
+        </Paper>
+      </Container>
+    </Box>
   );
 }
 
