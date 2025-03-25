@@ -9,10 +9,10 @@ const securityMiddleware = (app) => {
   // Setup CORS with default settings (open for now, can be restricted later)
   app.use(cors());
 
-  // Apply rate limiting: 10 requests per minute per IP
+  // Apply rate limiting: 20 requests per minute per IP
   const limiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 10,
+    max: 20,
     message: 'Too many requests, please try again later.',
   });
   app.use(limiter);
