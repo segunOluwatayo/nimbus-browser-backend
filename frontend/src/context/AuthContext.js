@@ -37,6 +37,74 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Upload profile picture
+  const uploadProfilePicture = async (file) => {
+    try {
+      setIsLoading(true);
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        throw new Error("No access token found");
+      }
+      
+      const formData = new FormData();
+      formData.append('profilePicture', file);
+      
+      const response = await fetch(`${apiUrl}/api/users/profile-picture`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to upload profile picture");
+      }
+      
+      const data = await response.json();
+      setUser(data.user);
+      setIsLoading(false);
+      return data.user;
+    } catch (error) {
+      setIsLoading(false);
+      console.error("Error uploading profile picture:", error);
+      throw error;
+    }
+  };
+
+  // Delete profile picture
+  const deleteProfilePicture = async () => {
+    try {
+      setIsLoading(true);
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        throw new Error("No access token found");
+      }
+      
+      const response = await fetch(`${apiUrl}/api/users/profile-picture`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete profile picture");
+      }
+      
+      const data = await response.json();
+      setUser(data.user);
+      setIsLoading(false);
+      return data.user;
+    } catch (error) {
+      setIsLoading(false);
+      console.error("Error deleting profile picture:", error);
+      throw error;
+    }
+  };
+
   // Login function with secure credentials
   const login = async ({ email, password }) => {
     setIsLoading(true);
@@ -239,7 +307,9 @@ export const AuthProvider = ({ children }) => {
       login, 
       signup, 
       logout, 
-      fetchUserProfile, 
+      fetchUserProfile,
+      uploadProfilePicture,
+      deleteProfilePicture, 
       isLoading,
       requires2FA,
       send2FACode,
