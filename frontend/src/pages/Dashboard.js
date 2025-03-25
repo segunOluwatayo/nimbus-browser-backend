@@ -65,7 +65,7 @@ function Dashboard() {
       setError('Display name cannot be empty');
       return;
     }
-
+  
     setSavingName(true);
     setError('');
     
@@ -84,12 +84,17 @@ function Dashboard() {
         body: JSON.stringify({ name: displayName })
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update profile");
+      // Check content type before trying to parse JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned an unexpected response format. Please try again later.");
       }
       
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update profile");
+      }
       
       // Update local state with new user data
       setProfileData(prevData => ({
@@ -105,7 +110,7 @@ function Dashboard() {
       setSavingName(false);
     }
   };
-
+  
   if (loading) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
