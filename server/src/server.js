@@ -14,6 +14,9 @@ const app = express();
 // Middleware to parse JSON
 app.use(express.json());
 
+// Apply security middleware
+securityMiddleware(app);
+
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/tabs', tabRoutes);
 app.use('/api/history', historyRoutes);
@@ -22,8 +25,6 @@ app.use('/api/passwords', passwordRoutes);
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
 
-// Apply security middleware
-securityMiddleware(app);
 
 // Connect to MongoDB Atlas
 connectDB();
@@ -40,6 +41,11 @@ const server = http.createServer(app);
 // Import and set up Socket.io synchronization
 const setupSyncSocket = require('./sockets/syncSocket');
 setupSyncSocket(server);
+
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ message: "Internal server error" });
+});
 
 // Start the server using the HTTP server
 const PORT = process.env.PORT || 3000;

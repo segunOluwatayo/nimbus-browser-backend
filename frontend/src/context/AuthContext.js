@@ -33,11 +33,9 @@ export const AuthProvider = ({ children }) => {
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Include cookies in the request
         body: JSON.stringify({ email, password }),
       });
       
-      // Check if response is JSON before parsing
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         throw new Error("Server returned non-JSON response. Please try again later.");
@@ -48,10 +46,15 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Login failed');
       }
       
-      // Fetch user profile after login
-      const userProfile = await fetchUserProfile();
+      // Store tokens in localStorage
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      
+      // Set user based on decoded token or fetch profile
+      // For now, let's just set a simple user object
+      setUser({ email });
       setIsLoading(false);
-      return { ...data, user: userProfile };
+      return data;
     } catch (error) {
       setIsLoading(false);
       throw error;
@@ -65,14 +68,12 @@ export const AuthProvider = ({ children }) => {
       const response = await fetch(`${apiUrl}/api/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Include cookies in the request
         body: JSON.stringify({ email, password }),
       });
       
-      // Check if response is JSON before parsing
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned non-JSON response. Please check your connection and try again.");
+        throw new Error("Server returned non-JSON response. Please try again later.");
       }
       
       const data = await response.json();
@@ -80,10 +81,14 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Signup failed');
       }
       
-      // After successful signup, automatically log the user in
-      const loginResponse = await login({ email, password });
+      // Store tokens
+      localStorage.setItem('accessToken', data.accessToken);
+      localStorage.setItem('refreshToken', data.refreshToken);
+      
+      // Set user
+      setUser({ email });
       setIsLoading(false);
-      return loginResponse;
+      return data;
     } catch (error) {
       setIsLoading(false);
       throw error;

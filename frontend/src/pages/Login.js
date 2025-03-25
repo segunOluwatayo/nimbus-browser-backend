@@ -15,7 +15,8 @@ import {
   Checkbox,
   FormControlLabel,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Alert
 } from '@mui/material';
 import { 
   Email as EmailIcon, 
@@ -40,7 +41,7 @@ function getPasswordStrength(password) {
 }
 
 function Login() {
-  const { login, signup } = useContext(AuthContext);
+  const { login, signup, isLoading } = useContext(AuthContext);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -49,7 +50,6 @@ function Login() {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState({ strength: '', score: 0 });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -61,22 +61,23 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
+    
     try {
       if (isSignUp) {
         // Validate password strength during sign up
         if (passwordStrength.strength === 'Weak') {
-          throw new Error('Password strength is weak. Please choose a stronger password.');
+          throw new Error('Password strength is weak. Please choose a stronger password with at least 8 characters including letters, numbers, and special characters.');
         }
+        
         await signup({ email, password });
+        navigate('/dashboard');
       } else {
         await login({ email, password });
+        navigate('/dashboard');
       }
-      navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
+      console.error('Authentication error:', err);
+      setError(err.message || 'An unexpected error occurred. Please try again.');
     }
   };
 
@@ -209,6 +210,7 @@ function Login() {
                     borderRadius: '8px'
                   }
                 }}
+                disabled={isLoading}
               />
               
               <TextField
@@ -244,6 +246,7 @@ function Login() {
                     borderRadius: '8px'
                   }
                 }}
+                disabled={isLoading}
               />
               
               {isSignUp && password && (
@@ -286,6 +289,7 @@ function Login() {
                         onChange={(e) => setRememberMe(e.target.checked)} 
                         color="primary"
                         size="small"
+                        disabled={isLoading}
                       />
                     }
                     label={<Typography variant="body2">Remember me</Typography>}
@@ -296,6 +300,7 @@ function Login() {
                     type="button"
                     onClick={() => console.log('Forgot password clicked')}
                     sx={{ textDecoration: 'none' }}
+                    disabled={isLoading}
                   >
                     Forgot password?
                   </Link>
@@ -303,20 +308,12 @@ function Login() {
               )}
               
               {error && (
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    color: theme.palette.error.main,
-                    marginTop: '0.5rem',
-                    marginBottom: '0.5rem',
-                    padding: '0.5rem',
-                    backgroundColor: theme.palette.error.light,
-                    borderRadius: '4px',
-                    opacity: 0.8
-                  }}
+                <Alert 
+                  severity="error" 
+                  sx={{ marginY: 2 }}
                 >
                   {error}
-                </Typography>
+                </Alert>
               )}
               
               <Button 
@@ -324,7 +321,7 @@ function Login() {
                 variant="contained" 
                 color="primary" 
                 fullWidth 
-                disabled={loading}
+                disabled={isLoading}
                 sx={{ 
                   marginTop: '1rem',
                   padding: '0.75rem 1.5rem',
@@ -334,7 +331,7 @@ function Login() {
                   fontWeight: 'bold'
                 }}
               >
-                {loading ? (
+                {isLoading ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
                   isSignUp ? 'Create Account' : 'Sign In'
@@ -356,6 +353,7 @@ function Login() {
                     fontWeight: 'bold',
                     textDecoration: 'none'
                   }}
+                  disabled={isLoading}
                 >
                   {isSignUp ? 'Sign In' : 'Sign Up'}
                 </Link>
