@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -17,6 +18,9 @@ app.use(express.json());
 
 // Apply security middleware
 securityMiddleware(app);
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/tabs', tabRoutes);
