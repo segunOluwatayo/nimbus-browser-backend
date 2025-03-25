@@ -27,56 +27,65 @@ function Dashboard() {
   const navigate = useNavigate();
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
+  // Check for auth tokens on component mount
+  useEffect(() => {
+    const accessToken = localStorage.getItem('accessToken');
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    console.log('Dashboard mounted. Checking auth tokens...');
+    console.log(`Access token exists: ${!!accessToken}`);
+    console.log(`Refresh token exists: ${!!refreshToken}`);
+    
+    // Only redirect if both tokens are missing
+    if (!accessToken && !refreshToken) {
+      console.log('No auth tokens found. Redirecting to login...');
+      navigate('/');
+    }
+  }, [navigate]);
+
   useEffect(() => {
     const loadUserProfile = async () => {
-        setLoading(true);
+      if (loading) {
+        console.log('Loading user profile...');
         setError('');
         
         try {
-          console.log("Starting to load user profile...");
-          
-          // Log access token info (first 10 chars only for security)
+          // Log token info for debugging
           const accessToken = localStorage.getItem('accessToken');
-          console.log(`Access token: ${accessToken ? accessToken.substring(0, 10) + '...' : 'not found'}`);
-          
-          // Log if refresh token exists
-          const refreshToken = localStorage.getItem('refreshToken');
-          console.log(`Refresh token exists: ${!!refreshToken}`);
+          console.log(`Using access token: ${accessToken ? accessToken.substring(0, 10) + '...' : 'not found'}`);
           
           if (!accessToken) {
-            console.error("No access token found, redirecting to login");
-            navigate('/');
+            console.error('No access token available. Cannot fetch profile.');
+            setError('Authentication required. Please sign in again.');
+            setLoading(false);
             return;
           }
           
           const userData = await fetchUserProfile();
-          console.log("User profile loaded successfully:", userData);
+          console.log('User profile data received:', userData);
           
-          // Check if we have valid user data before updating state
-          if (userData && (userData._id || userData.id) && (userData.name || userData.email)) {
+          if (userData && (userData._id || userData.id)) {
+            console.log('Setting profile data with valid user data');
             setProfileData(userData);
             setDisplayName(userData?.name || '');
-            console.log("Profile data set successfully");
           } else {
-            console.error("Received invalid user data:", userData);
-            throw new Error("Invalid user data received");
+            console.error('Invalid user data received:', userData);
+            setError('Unable to load profile data correctly.');
           }
         } catch (error) {
-          console.error('Failed to load user profile:', error);
-          setError('Failed to load profile. Please try logging in again.');
+          console.error('Error fetching user profile:', error);
+          setError(`Failed to load profile: ${error.message}`);
           
-          // Wait a moment before redirecting to make error visible
-          setTimeout(() => {
-            navigate('/');
-          }, 2000);
+          // Don't automatically redirect - let the user see the error
+          // and manually go back to login if needed
         } finally {
           setLoading(false);
         }
-      };
-  
+      }
+    };
+    
     loadUserProfile();
-  }, [fetchUserProfile, navigate]);
-
+  }, [fetchUserProfile, loading]);
 
   const handleLogout = () => {
     logout();
@@ -157,16 +166,44 @@ function Dashboard() {
     );
   }
 
-  // Use profileData if available, otherwise fall back to user from context
+  // Use both user contexts to ensure we have data
   const userData = profileData || user || {};
+  const hasUserData = userData && (userData.name || userData.email);
+
+  // If we still don't have user data after loading and there's an error, show error screen
+  if (!hasUserData && error) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 4 }}>
+        <Alert severity="error" sx={{ width: '100%', maxWidth: 500, mb: 2 }}>
+          {error}
+        </Alert>
+        <Button 
+          variant="contained" 
+          onClick={() => navigate('/')} 
+          sx={{ mt: 2 }}
+        >
+          Return to Login
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <ProfileHeader 
-        user={userData} 
-        onLogout={handleLogout} 
-      />
+      {hasUserData && (
+        <ProfileHeader 
+          user={userData} 
+          onLogout={handleLogout} 
+        />
+      )}
+      
       <Container maxWidth="lg" sx={{ flexGrow: 1 }}>
+        {error && (
+          <Alert severity="error" sx={{ mt: 2, mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        
         <Typography variant="h4" gutterBottom>
           Dashboard
         </Typography>
@@ -181,12 +218,6 @@ function Dashboard() {
             Profile
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
           
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <Typography variant="subtitle1" sx={{ minWidth: '120px', fontWeight: 'bold' }}>
@@ -246,7 +277,7 @@ function Dashboard() {
           </Box>
         </Paper>
         
-        {/* Recent Activity Section - keeping this as requested */}
+        {/* Recent Activity Section */}
         <Paper sx={{ p: 3, mt: 2 }}>
           <Typography variant="h6" gutterBottom>
             Recent Activity

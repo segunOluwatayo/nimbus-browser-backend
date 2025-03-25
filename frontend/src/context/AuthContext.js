@@ -38,16 +38,15 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Fetch user profile using a secure cookie (HttpOnly cookie is sent automatically)
- // Updated fetchUserProfile function
- const fetchUserProfile = async () => {
+  const fetchUserProfile = async () => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) {
-        console.error("No access token found");
+        console.error("fetchUserProfile: No access token found");
         throw new Error("No access token found");
       }
       
-      console.log(`Fetching user profile with token: ${accessToken.substring(0, 20)}...`);
+      console.log(`fetchUserProfile: Fetching with token: ${accessToken.substring(0, 10)}...`);
       
       const response = await fetch(`${apiUrl}/api/users/me`, {
         method: 'GET',
@@ -56,14 +55,14 @@ export const AuthProvider = ({ children }) => {
         }
       });
       
-      console.log(`Profile fetch response status: ${response.status}`);
+      console.log(`fetchUserProfile: Response status: ${response.status}`);
       
       // If unauthorized, try to refresh the token and fetch again
       if (response.status === 401) {
-        console.log("Unauthorized response, attempting token refresh");
+        console.log("fetchUserProfile: Unauthorized response, attempting token refresh");
         const refreshed = await refreshAccessToken();
         if (refreshed) {
-          console.log("Token refresh successful, retrying profile fetch");
+          console.log("fetchUserProfile: Token refresh successful, retrying profile fetch");
           // Try again with the new token
           const newAccessToken = localStorage.getItem('accessToken');
           const retryResponse = await fetch(`${apiUrl}/api/users/me`, {
@@ -73,60 +72,56 @@ export const AuthProvider = ({ children }) => {
             }
           });
           
-          console.log(`Retry response status: ${retryResponse.status}`);
+          console.log(`fetchUserProfile: Retry response status: ${retryResponse.status}`);
           
           if (retryResponse.ok) {
             try {
               const userData = await retryResponse.json();
-              console.log("Successfully retrieved user data after token refresh");
+              console.log("fetchUserProfile: Successfully retrieved user data after token refresh");
               setUser(userData);
               return userData;
             } catch (parseError) {
-              console.error("Error parsing JSON from retry response:", parseError);
-              const responseText = await retryResponse.text();
-              console.log("Raw response text:", responseText);
+              console.error("fetchUserProfile: Error parsing JSON from retry response:", parseError);
               throw new Error("Failed to parse user profile data");
             }
+          } else {
+            console.error(`fetchUserProfile: Retry failed with status ${retryResponse.status}`);
+            throw new Error(`Profile fetch retry failed: ${retryResponse.statusText}`);
           }
+        } else {
+          console.error("fetchUserProfile: Token refresh failed");
+          throw new Error("Session expired. Token refresh failed.");
         }
-        // If refresh failed or retry failed, log out user
-        logout();
-        throw new Error("Session expired. Please login again.");
       }
       
       if (!response.ok) {
-        console.error(`Error response ${response.status}: ${response.statusText}`);
+        console.error(`fetchUserProfile: Error response ${response.status}: ${response.statusText}`);
         throw new Error(`Failed to fetch user profile: ${response.statusText}`);
       }
       
       try {
-        // Try to get response as text first to debug any parsing issues
-        const responseText = await response.text();
-        console.log("Raw response:", responseText);
-        
-        // Then parse it as JSON manually
-        let userData;
-        try {
-          userData = JSON.parse(responseText);
-        } catch (jsonError) {
-          console.error("Error parsing JSON:", jsonError);
-          throw new Error("Invalid JSON in response");
-        }
+        const userData = await response.json();
         
         if (!userData || typeof userData !== 'object') {
-          console.error("Invalid user data format:", userData);
+          console.error("fetchUserProfile: Invalid user data format:", userData);
           throw new Error("Invalid user data format");
         }
         
-        console.log("User profile fetched successfully:", JSON.stringify(userData).substring(0, 100));
-        setUser(userData);
+        console.log("fetchUserProfile: User profile fetched successfully:", JSON.stringify(userData).substring(0, 100));
+        
+        // Important: Only update state if we have valid user data
+        if (userData && (userData._id || userData.id)) {
+          setUser(userData);
+        }
+        
         return userData;
       } catch (parseError) {
-        console.error("Error handling response:", parseError);
+        console.error("fetchUserProfile: Error parsing response:", parseError);
         throw new Error("Failed to process user profile response");
       }
     } catch (error) {
-      console.error("Error in fetchUserProfile:", error);
+      console.error("fetchUserProfile: Error:", error);
+      
       throw error;
     }
   };
@@ -481,39 +476,53 @@ export const AuthProvider = ({ children }) => {
 
   // On mount, check if we have tokens in localStorage and fetch user profile
   // Update the useEffect in AuthContext.js
-useEffect(() => {
+  useEffect(() => {
+    console.log('AuthContext initialized. Checking for existing session...');
+    
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
     
     if (accessToken && refreshToken) {
-      // Set loading state while fetching profile
+      console.log('Auth tokens found. Attempting to restore session...');
       setIsLoading(true);
       
-      fetchUserProfile()
-        .then(userData => {
-          // Successfully fetched user data
+      // Using a self-executing async function
+      (async () => {
+        try {
+          console.log('Fetching user profile...');
+          const userData = await fetchUserProfile();
+          console.log('User session restored successfully:', userData);
           setIsLoading(false);
-        })
-        .catch(async (err) => {
-          console.error("Error fetching user profile:", err);
+        } catch (err) {
+          console.error('Error restoring session:', err);
           
-          // If fetching profile fails, try to refresh the token once
-          if (await refreshAccessToken()) {
-            // If token refresh succeeds, try fetching profile again
-            try {
-              await fetchUserProfile();
-            } catch (secondErr) {
-              // If it still fails, logout instead of setting incomplete user state
-              console.error("Failed to fetch profile after token refresh:", secondErr);
-              logout();
+          // Try token refresh exactly once
+          try {
+            console.log('Attempting token refresh...');
+            const refreshSuccessful = await refreshAccessToken();
+            
+            if (refreshSuccessful) {
+              console.log('Token refresh successful, fetching profile again...');
+              const userData = await fetchUserProfile();
+              console.log('User session restored after token refresh:', userData);
+            } else {
+              console.error('Token refresh failed. User will need to login again.');
+              // Clear invalid tokens but DON'T trigger automatic redirect
+              localStorage.removeItem('accessToken');
+              localStorage.removeItem('refreshToken');
             }
-          } else {
-            // If token refresh fails, log user out
-            logout();
+          } catch (refreshError) {
+            console.error('Error during token refresh:', refreshError);
+            // Clear invalid tokens but DON'T trigger automatic redirect
+            localStorage.removeItem('accessToken');
+            localStorage.removeItem('refreshToken');
           }
           
           setIsLoading(false);
-        });
+        }
+      })();
+    } else {
+      console.log('No auth tokens found. User needs to log in.');
     }
   }, []);
 
