@@ -39,20 +39,21 @@ function Dashboard() {
         }
       } catch (error) {
         console.error('Failed to load user profile:', error);
-        // If profile fetch fails, redirect to login
-        navigate('/');
-      } finally {
-        setLoading(false);
+        // Don't immediately redirect - add debugging and delay
+        console.log('Access token:', localStorage.getItem('accessToken'));
+        console.log('Refresh token exists:', !!localStorage.getItem('refreshToken'));
+        
+        // Optional: Add a delay and manual redirect so you can see errors
+        // setTimeout(() => navigate('/'), 5000);
+        
+        // Or comment out the redirect completely for testing
+        // navigate('/');
       }
     };
   
     loadUserProfile();
   }, [fetchUserProfile, navigate]);
-  
-  // Then update the userData variable creation:
-   userData = profileData || user || {};
-  // Check if we have meaningful user data
-  const hasUserData = userData && (userData.name || userData.email);
+
 
   const handleLogout = () => {
     logout();
