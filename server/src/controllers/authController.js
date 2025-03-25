@@ -77,13 +77,12 @@ exports.login = async (req, res) => {
 };
 
 exports.googleLogin = (req, res) => {
-  // // Placeholder for Google OAuth flow
-  // res.status(200).json({ message: "Google login endpoint - to be implemented" });
-
+  const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+  
   const client = new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    `${process.env.APP_URL}/api/auth/google/callback`
+    `${baseUrl}/api/auth/google/callback`
   );
 
   const authUrl = client.generateAuthUrl({
@@ -108,11 +107,13 @@ exports.googleLogin = (req, res) => {
 exports.googleCallback = async (req, res) => {
   try {
     const code = req.query.code;
+    const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+    const frontendUrl = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3001';
     
     const client = new OAuth2Client(
       process.env.GOOGLE_CLIENT_ID,
       process.env.GOOGLE_CLIENT_SECRET,
-      `${process.env.APP_URL}/api/auth/google/callback`
+      `${baseUrl}/api/auth/google/callback`
     );
     
     // Exchange code for tokens
@@ -163,12 +164,13 @@ exports.googleCallback = async (req, res) => {
     await tokenEntry.save();
     
     // Redirect to frontend with tokens
-  
-    res.redirect(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+    frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
     
   } catch (error) {
     console.error("Google OAuth error:", error);
-    res.redirect(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/login?error=auth_failed`);
+    const frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/login?error=auth_failed`);
   }
 };
 
