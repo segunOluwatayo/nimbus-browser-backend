@@ -10,16 +10,25 @@ export const AuthProvider = ({ children }) => {
   // Fetch user profile using a secure cookie (HttpOnly cookie is sent automatically)
   const fetchUserProfile = async () => {
     try {
+      const accessToken = localStorage.getItem('accessToken');
+      if (!accessToken) {
+        throw new Error("No access token found");
+      }
+      
       const response = await fetch(`${apiUrl}/api/users/me`, {
         method: 'GET',
-        credentials: 'include', // Ensure cookies are included
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
       });
+      
       if (!response.ok) {
         throw new Error("Failed to fetch user profile");
       }
-      const data = await response.json();
-      setUser(data);
-      return data;
+      
+      const userData = await response.json();
+      setUser(userData);
+      return userData;
     } catch (error) {
       console.error("Error fetching user profile:", error);
       return null;

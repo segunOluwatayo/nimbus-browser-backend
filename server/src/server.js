@@ -8,6 +8,7 @@ const bookmarkRoutes = require('./routes/bookmarkRoutes');
 const tabRoutes = require('./routes/tabRoutes');
 const historyRoutes = require('./routes/historyRoutes');
 const passwordRoutes = require('./routes/passwordRoutes');
+const userRoutes = require('./routes/userRoutes'); 
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/tabs', tabRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/passwords', passwordRoutes);
+app.use('/api/users', userRoutes);
 
 const authRoutes = require('./routes/authRoutes');
 app.use('/api/auth', authRoutes);
