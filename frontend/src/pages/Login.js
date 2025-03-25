@@ -83,7 +83,7 @@ function Login() {
 
   const handleGoogleSignIn = () => {
     // Use a fallback URL if the environment variable isn't defined
-    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
     window.location.href = `${apiUrl}/api/auth/google`;
   };
 

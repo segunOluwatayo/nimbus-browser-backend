@@ -94,16 +94,82 @@ exports.googleLogin = (req, res) => {
   res.redirect(authUrl);
 };
 
+// exports.googleCallback = async (req, res) => {
+//   // This would handle the callback from Google with the auth code
+//   const code = req.query.code;
+//   const {tokens} = await client.getToken(code);
+//   const ticket = await client.verifyIdToken({
+//     idToken: tokens.id_token,
+//     audience: process.env.GOOGLE_CLIENT_ID
+//   });
+//   const payload = ticket.getPayload();
+//   // Here you would handle user creation/login with Google profile
+// };
 exports.googleCallback = async (req, res) => {
-  // This would handle the callback from Google with the auth code
-  const code = req.query.code;
-  const {tokens} = await client.getToken(code);
-  const ticket = await client.verifyIdToken({
-    idToken: tokens.id_token,
-    audience: process.env.GOOGLE_CLIENT_ID
-  });
-  const payload = ticket.getPayload();
-  // Here you would handle user creation/login with Google profile
+  try {
+    const code = req.query.code;
+    
+    const client = new OAuth2Client(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      `${process.env.APP_URL}/api/auth/google/callback`
+    );
+    
+    // Exchange code for tokens
+    const { tokens } = await client.getToken(code);
+    
+    // Verify the ID token
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+    
+    const payload = ticket.getPayload();
+    const { email, sub: googleId } = payload;
+    
+    // Check if the user exists
+    let user = await User.findOne({ email });
+    
+    if (!user) {
+      // Create a new user with a random password
+      const randomPassword = Math.random().toString(36).slice(-8);
+      const hashedPassword = await bcrypt.hash(randomPassword, 10);
+      
+      user = new User({
+        email,
+        password: hashedPassword,
+        googleId
+      });
+      
+      await user.save();
+    } else {
+      // Update googleId if it doesn't exist
+      if (!user.googleId) {
+        user.googleId = googleId;
+        await user.save();
+      }
+    }
+    
+    // Generate tokens
+    const accessToken = jwtService.signAccessToken(user);
+    const refreshToken = jwtService.signRefreshToken(user);
+    
+    // Save refresh token in DB
+    const tokenEntry = new RefreshToken({
+      userId: user._id,
+      token: refreshToken,
+      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+    });
+    await tokenEntry.save();
+    
+    // Redirect to frontend with tokens
+  
+    res.redirect(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+    
+  } catch (error) {
+    console.error("Google OAuth error:", error);
+    res.redirect(`${process.env.REACT_APP_API_URL || 'http://localhost:3000'}/login?error=auth_failed`);
+  }
 };
 
 exports.send2fa = async (req, res) => {
