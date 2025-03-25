@@ -38,7 +38,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Fetch user profile using a secure cookie (HttpOnly cookie is sent automatically)
-  const fetchUserProfile = async () => {
+ // Updated fetchUserProfile function
+const fetchUserProfile = async () => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) {
@@ -85,7 +86,9 @@ export const AuthProvider = ({ children }) => {
       return userData;
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      return null;
+      // Important: throw the error instead of returning null
+      // This ensures the calling code properly handles the failure
+      throw error;
     }
   };
 
