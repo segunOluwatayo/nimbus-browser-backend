@@ -29,27 +29,50 @@ function Dashboard() {
 
   useEffect(() => {
     const loadUserProfile = async () => {
-      setLoading(true);
-      try {
-        const userData = await fetchUserProfile();
-        // Only update state if we got valid data
-        if (userData && (userData.name || userData.email)) {
-          setProfileData(userData);
-          setDisplayName(userData?.name || '');
+        setLoading(true);
+        setError('');
+        
+        try {
+          console.log("Starting to load user profile...");
+          
+          // Log access token info (first 10 chars only for security)
+          const accessToken = localStorage.getItem('accessToken');
+          console.log(`Access token: ${accessToken ? accessToken.substring(0, 10) + '...' : 'not found'}`);
+          
+          // Log if refresh token exists
+          const refreshToken = localStorage.getItem('refreshToken');
+          console.log(`Refresh token exists: ${!!refreshToken}`);
+          
+          if (!accessToken) {
+            console.error("No access token found, redirecting to login");
+            navigate('/');
+            return;
+          }
+          
+          const userData = await fetchUserProfile();
+          console.log("User profile loaded successfully:", userData);
+          
+          // Check if we have valid user data before updating state
+          if (userData && (userData._id || userData.id) && (userData.name || userData.email)) {
+            setProfileData(userData);
+            setDisplayName(userData?.name || '');
+            console.log("Profile data set successfully");
+          } else {
+            console.error("Received invalid user data:", userData);
+            throw new Error("Invalid user data received");
+          }
+        } catch (error) {
+          console.error('Failed to load user profile:', error);
+          setError('Failed to load profile. Please try logging in again.');
+          
+          // Wait a moment before redirecting to make error visible
+          setTimeout(() => {
+            navigate('/');
+          }, 2000);
+        } finally {
+          setLoading(false);
         }
-      } catch (error) {
-        console.error('Failed to load user profile:', error);
-        // Don't immediately redirect - add debugging and delay
-        console.log('Access token:', localStorage.getItem('accessToken'));
-        console.log('Refresh token exists:', !!localStorage.getItem('refreshToken'));
-        
-        // Optional: Add a delay and manual redirect so you can see errors
-        // setTimeout(() => navigate('/'), 5000);
-        
-        // Or comment out the redirect completely for testing
-        // navigate('/');
-      }
-    };
+      };
   
     loadUserProfile();
   }, [fetchUserProfile, navigate]);

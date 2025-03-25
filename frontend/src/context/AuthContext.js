@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) {
-        console.error("No access token found in localStorage");
+        console.error("No access token found");
         throw new Error("No access token found");
       }
       
@@ -76,16 +76,18 @@ export const AuthProvider = ({ children }) => {
           console.log(`Retry response status: ${retryResponse.status}`);
           
           if (retryResponse.ok) {
-            const userData = await retryResponse.json();
-            console.log("Successfully retrieved user data after token refresh");
-            setUser(userData);
-            return userData;
-          } else {
-            const errorText = await retryResponse.text();
-            console.error(`Retry response error: ${errorText}`);
+            try {
+              const userData = await retryResponse.json();
+              console.log("Successfully retrieved user data after token refresh");
+              setUser(userData);
+              return userData;
+            } catch (parseError) {
+              console.error("Error parsing JSON from retry response:", parseError);
+              const responseText = await retryResponse.text();
+              console.log("Raw response text:", responseText);
+              throw new Error("Failed to parse user profile data");
+            }
           }
-        } else {
-          console.error("Token refresh failed");
         }
         // If refresh failed or retry failed, log out user
         logout();
@@ -93,26 +95,38 @@ export const AuthProvider = ({ children }) => {
       }
       
       if (!response.ok) {
-        // Try to get more error details from the response
-        let errorMessage = "Failed to fetch user profile";
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-          console.error("Error response from server:", errorData);
-        } catch (e) {
-          console.error("Could not parse error response:", await response.text());
-        }
-        throw new Error(errorMessage);
+        console.error(`Error response ${response.status}: ${response.statusText}`);
+        throw new Error(`Failed to fetch user profile: ${response.statusText}`);
       }
       
-      const userData = await response.json();
-      console.log("User profile fetched successfully:", JSON.stringify(userData).substring(0, 100));
-      setUser(userData);
-      return userData;
+      try {
+        // Try to get response as text first to debug any parsing issues
+        const responseText = await response.text();
+        console.log("Raw response:", responseText);
+        
+        // Then parse it as JSON manually
+        let userData;
+        try {
+          userData = JSON.parse(responseText);
+        } catch (jsonError) {
+          console.error("Error parsing JSON:", jsonError);
+          throw new Error("Invalid JSON in response");
+        }
+        
+        if (!userData || typeof userData !== 'object') {
+          console.error("Invalid user data format:", userData);
+          throw new Error("Invalid user data format");
+        }
+        
+        console.log("User profile fetched successfully:", JSON.stringify(userData).substring(0, 100));
+        setUser(userData);
+        return userData;
+      } catch (parseError) {
+        console.error("Error handling response:", parseError);
+        throw new Error("Failed to process user profile response");
+      }
     } catch (error) {
-      console.error("Error fetching user profile:", error);
-      // Important: throw the error instead of returning null
-      // This ensures the calling code properly handles the failure
+      console.error("Error in fetchUserProfile:", error);
       throw error;
     }
   };
@@ -291,74 +305,108 @@ export const AuthProvider = ({ children }) => {
 
   // Verify 2FA code
   const verify2FACode = async (token) => {
-  setIsLoading(true);
-  try {
-    if (!tempUserEmail) {
-      throw new Error("No user email found for 2FA verification");
+    setIsLoading(true);
+    try {
+      if (!tempUserEmail) {
+        throw new Error("No user email found for 2FA verification");
+      }
+      
+      console.log(`Verifying 2FA code for email: ${tempUserEmail}`);
+      
+      const response = await fetch(`${apiUrl}/api/auth/2fa/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: tempUserEmail, token }),
+      });
+      
+      console.log(`2FA verification response status: ${response.status}`);
+      
+      let data;
+      try {
+        const text = await response.text();
+        console.log("2FA verification raw response:", text);
+        data = JSON.parse(text);
+      } catch (parseError) {
+        console.error("Error parsing 2FA verification response:", parseError);
+        throw new Error("Invalid server response during 2FA verification");
+      }
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid 2FA code');
+      }
+      
+      console.log("2FA verification successful, completing login");
+      
+      // Get the temporary password from localStorage
+      const tempPassword = localStorage.getItem('tempPassword');
+      if (!tempPassword) {
+        console.error("Temporary password not found in localStorage");
+        throw new Error("Authentication failed: Missing temporary credentials");
+      }
+      
+      // Now complete the login/signup process
+      const authResponse = await fetch(`${apiUrl}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: tempUserEmail, password: tempPassword }),
+      });
+      
+      console.log(`Final login response status: ${authResponse.status}`);
+      
+      let authData;
+      try {
+        const authText = await authResponse.text();
+        console.log("Login response raw text:", authText);
+        authData = JSON.parse(authText);
+      } catch (parseError) {
+        console.error("Error parsing login response:", parseError);
+        throw new Error("Invalid server response during login");
+      }
+      
+      if (!authResponse.ok) {
+        console.error("Authentication failed after 2FA:", authData);
+        throw new Error(authData.message || 'Authentication failed after 2FA');
+      }
+      
+      if (!authData.accessToken || !authData.refreshToken) {
+        console.error("Missing tokens in login response:", authData);
+        throw new Error("Server did not return required authentication tokens");
+      }
+      
+      console.log("Login successful after 2FA, storing tokens");
+      
+      // Store tokens in localStorage
+      localStorage.setItem('accessToken', authData.accessToken);
+      localStorage.setItem('refreshToken', authData.refreshToken);
+      
+      // Remove temporary password
+      localStorage.removeItem('tempPassword');
+      
+      // Add small delay before fetching profile to ensure tokens are properly stored
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log("Fetching user profile after successful login");
+      
+      try {
+        // Fetch the complete user profile
+        const profileData = await fetchUserProfile();
+        console.log("Profile fetched successfully after login:", profileData);
+      } catch (profileError) {
+        console.error("Error fetching profile after login:", profileError);
+        // Continue anyway - we can try to fetch profile again in the Dashboard component
+      }
+      
+      setRequires2FA(false);
+      setTempUserEmail(null);
+      setIsLoading(false);
+      
+      return true;
+    } catch (error) {
+      console.error("2FA verification error:", error);
+      setIsLoading(false);
+      throw error;
     }
-    
-    console.log(`Verifying 2FA code for email: ${tempUserEmail}`);
-    
-    const response = await fetch(`${apiUrl}/api/auth/2fa/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: tempUserEmail, token }),
-    });
-    
-    console.log(`2FA verification response status: ${response.status}`);
-    
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || 'Invalid 2FA code');
-    }
-    
-    console.log("2FA verification successful, completing login");
-    
-    // Get the temporary password from localStorage
-    const tempPassword = localStorage.getItem('tempPassword');
-    if (!tempPassword) {
-      console.error("Temporary password not found in localStorage");
-      throw new Error("Authentication failed: Missing temporary credentials");
-    }
-    
-    // Now complete the login/signup process
-    const authResponse = await fetch(`${apiUrl}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: tempUserEmail, password: tempPassword }),
-    });
-    
-    console.log(`Final login response status: ${authResponse.status}`);
-    
-    const authData = await authResponse.json();
-    if (!authResponse.ok) {
-      console.error("Authentication failed after 2FA:", authData);
-      throw new Error(authData.message || 'Authentication failed after 2FA');
-    }
-    
-    console.log("Login successful after 2FA, storing tokens");
-    
-    // Store tokens in localStorage
-    localStorage.setItem('accessToken', authData.accessToken);
-    localStorage.setItem('refreshToken', authData.refreshToken);
-    
-    // Remove temporary password
-    localStorage.removeItem('tempPassword');
-    
-    // Fetch the complete user profile
-    await fetchUserProfile();
-    
-    setRequires2FA(false);
-    setTempUserEmail(null);
-    setIsLoading(false);
-    
-    return true;
-  } catch (error) {
-    console.error("2FA verification error:", error);
-    setIsLoading(false);
-    throw error;
-  }
-};
+  };
 
   // Signup function with secure credentials
   const signup = async ({ email, password }) => {
