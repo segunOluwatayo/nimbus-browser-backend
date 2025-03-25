@@ -22,7 +22,23 @@ exports.signup = async (req, res) => {
     user = new User({ email, password: hashedPassword });
     await user.save();
 
-    res.status(201).json({ message: "User created successfully" });
+    // Generate tokens after successful signup (similar to login)
+    const accessToken = jwtService.signAccessToken(user);
+    const refreshToken = jwtService.signRefreshToken(user);
+
+    // Save refresh token in DB for token rotation
+    const tokenEntry = new RefreshToken({
+      userId: user._id,
+      token: refreshToken,
+      expiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+    });
+    await tokenEntry.save();
+
+    res.status(201).json({ 
+      message: "User created successfully", 
+      accessToken, 
+      refreshToken 
+    });
   } catch (error) {
     console.error("Signup error:", error);
     res.status(500).json({ message: "Internal server error" });
