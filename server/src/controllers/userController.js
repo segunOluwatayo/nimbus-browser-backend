@@ -42,15 +42,30 @@ exports.uploadMiddleware = multer({
 
 // Get user profile
 exports.getUserProfile = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('-password');
-    if (!user) return res.status(404).json({ message: "User not found" });
-    res.status(200).json(user);
-  } catch (error) {
-    console.error("Error retrieving user profile:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-};
+    try {
+      // Log the user ID to help with debugging
+      console.log('Attempting to fetch user profile with ID:', req.user.id);
+      
+      // Check if the ID is a valid MongoDB ObjectId
+      if (!req.user.id || !req.user.id.match(/^[0-9a-fA-F]{24}$/)) {
+        console.error('Invalid user ID format:', req.user.id);
+        return res.status(400).json({ message: "Invalid user ID format" });
+      }
+      
+      const user = await User.findById(req.user.id).select('-password');
+      
+      if (!user) {
+        console.error('User not found with ID:', req.user.id);
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      console.log('User profile fetched successfully for ID:', req.user.id);
+      res.status(200).json(user);
+    } catch (error) {
+      console.error("Error retrieving user profile:", error);
+      res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+  };
 
 // Update user profile
 exports.updateUserProfile = async (req, res) => {
