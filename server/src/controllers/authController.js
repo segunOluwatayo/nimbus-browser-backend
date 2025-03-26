@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const RefreshToken = require('../models/RefreshToken');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const jwtService = require('../services/jwtService');
 const totpService = require('../services/totpService');
 const { sendEmail } = require('../utils/emailService');
@@ -10,6 +11,12 @@ dotenv.config();
 
 // Temporary in-memory store for 2FA secrets (for demonstration purposes only)
 const TWO_FA_TEMP_STORE = {};
+
+// Helper to generate a device ID based on user-agent and IP
+const generateDeviceId = (userId, userAgent, ip) => {
+  const input = `${userId}|${userAgent}|${ip}|${Date.now()}`;
+  return crypto.createHash('md5').update(input).digest('hex');
+};
 
 exports.signup = async (req, res) => {
   try {
@@ -31,6 +38,11 @@ exports.signup = async (req, res) => {
     const accessToken = jwtService.signAccessToken(user);
     const refreshToken = jwtService.signRefreshToken(user);
 
+    // Generate device ID for this signup
+    const userAgent = req.headers['user-agent'];
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const deviceId = generateDeviceId(user._id.toString(), userAgent, ip);
+
     // Save refresh token in DB for token rotation
     const tokenEntry = new RefreshToken({
       userId: user._id,
@@ -42,7 +54,8 @@ exports.signup = async (req, res) => {
     res.status(201).json({ 
       message: "User created successfully", 
       accessToken, 
-      refreshToken 
+      refreshToken,
+      deviceId
     });
   } catch (error) {
     console.error("Signup error:", error);
@@ -65,6 +78,11 @@ exports.login = async (req, res) => {
     const accessToken = jwtService.signAccessToken(user);
     const refreshToken = jwtService.signRefreshToken(user);
 
+    // Generate device ID for this login
+    const userAgent = req.headers['user-agent'];
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const deviceId = generateDeviceId(user._id.toString(), userAgent, ip);
+
     // Save refresh token in DB for token rotation
     const tokenEntry = new RefreshToken({
       userId: user._id,
@@ -73,7 +91,12 @@ exports.login = async (req, res) => {
     });
     await tokenEntry.save();
 
-    res.status(200).json({ message: "Login successful", accessToken, refreshToken });
+    res.status(200).json({ 
+      message: "Login successful", 
+      accessToken, 
+      refreshToken,
+      deviceId // Include the deviceId in the response
+    });
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -97,17 +120,6 @@ exports.googleLogin = (req, res) => {
   res.redirect(authUrl);
 };
 
-// exports.googleCallback = async (req, res) => {
-//   // This would handle the callback from Google with the auth code
-//   const code = req.query.code;
-//   const {tokens} = await client.getToken(code);
-//   const ticket = await client.verifyIdToken({
-//     idToken: tokens.id_token,
-//     audience: process.env.GOOGLE_CLIENT_ID
-//   });
-//   const payload = ticket.getPayload();
-//   // Here you would handle user creation/login with Google profile
-// };
 exports.googleCallback = async (req, res) => {
   try {
     const code = req.query.code;
@@ -171,6 +183,11 @@ exports.googleCallback = async (req, res) => {
     const accessToken = jwtService.signAccessToken(user);
     const refreshToken = jwtService.signRefreshToken(user);
     
+    // Generate device ID for this OAuth login
+    const userAgent = req.headers['user-agent'];
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const deviceId = generateDeviceId(user._id.toString(), userAgent, ip);
+    
     // Save refresh token in DB
     const tokenEntry = new RefreshToken({
       userId: user._id,
@@ -179,9 +196,9 @@ exports.googleCallback = async (req, res) => {
     });
     await tokenEntry.save();
     
-    // Redirect to frontend with tokens
+    // Redirect to frontend with tokens and device ID
     frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
-    res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}`);
+    res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&deviceId=${deviceId}`);
     
   } catch (error) {
     console.error("Google OAuth error:", error);
@@ -236,7 +253,15 @@ exports.verify2fa = async (req, res) => {
     // Remove the temporary secret once verified
     delete TWO_FA_TEMP_STORE[user._id];
 
-    res.status(200).json({ message: "2FA verification successful" });
+    // Generate device ID for this verification
+    const userAgent = req.headers['user-agent'];
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const deviceId = generateDeviceId(user._id.toString(), userAgent, ip);
+
+    res.status(200).json({ 
+      message: "2FA verification successful",
+      deviceId // Include the deviceId in the response
+    });
   } catch (error) {
     console.error("Verify 2FA error:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -262,6 +287,11 @@ exports.refreshToken = async (req, res) => {
         const newAccessToken = jwtService.signAccessToken(user);
         const newRefreshToken = jwtService.signRefreshToken(user);
 
+        // Generate a device ID for the refresh
+        const userAgent = req.headers['user-agent'];
+        const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        const deviceId = generateDeviceId(user._id.toString(), userAgent, ip);
+
         // Token rotation: update the refresh token in the database
         tokenEntry.token = newRefreshToken;
         tokenEntry.expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
@@ -271,6 +301,7 @@ exports.refreshToken = async (req, res) => {
           message: "Token refreshed",
           accessToken: newAccessToken,
           refreshToken: newRefreshToken,
+          deviceId
         });
       }).catch((error) => {
         console.error("Refresh token DB error:", error);

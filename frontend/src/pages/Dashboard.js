@@ -10,20 +10,45 @@ import {
   Button,
   Stack,
   Divider,
-  Alert
+  Alert,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton,
+  Chip
 } from '@mui/material';
+import { 
+  Computer as ComputerIcon,
+  Smartphone as SmartphoneIcon,
+  Tablet as TabletIcon,
+  Language as WebIcon,
+  Delete as DeleteIcon,
+  Info as InfoIcon
+} from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ProfileHeader from '../components/ProfileHeader';
 
 function Dashboard() {
-  const { user, logout, fetchUserProfile } = useContext(AuthContext);
+  const { 
+    user, 
+    logout, 
+    fetchUserProfile, 
+    getConnectedDevices, 
+    removeConnectedDevice,
+    updateDeviceActivity
+  } = useContext(AuthContext);
+  
   const [loading, setLoading] = useState(true);
+  const [deviceLoading, setDeviceLoading] = useState(true);
   const [profileData, setProfileData] = useState(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [savingName, setSavingName] = useState(false);
   const [error, setError] = useState('');
+  const [connectedDevices, setConnectedDevices] = useState([]);
   const navigate = useNavigate();
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
@@ -43,6 +68,7 @@ function Dashboard() {
     }
   }, [navigate]);
 
+  // Load user profile
   useEffect(() => {
     const loadUserProfile = async () => {
       if (loading) {
@@ -75,9 +101,6 @@ function Dashboard() {
         } catch (error) {
           console.error('Error fetching user profile:', error);
           setError(`Failed to load profile: ${error.message}`);
-          
-          // Don't automatically redirect - let the user see the error
-          // and manually go back to login if needed
         } finally {
           setLoading(false);
         }
@@ -86,6 +109,31 @@ function Dashboard() {
     
     loadUserProfile();
   }, [fetchUserProfile, loading]);
+
+  // Load connected devices
+  useEffect(() => {
+    const loadConnectedDevices = async () => {
+      if (!loading && (profileData || user)) {
+        setDeviceLoading(true);
+        try {
+          // Update device activity
+          await updateDeviceActivity();
+          
+          // Get connected devices
+          const devices = await getConnectedDevices();
+          console.log('Connected devices:', devices);
+          setConnectedDevices(devices || []);
+        } catch (error) {
+          console.error('Error fetching connected devices:', error);
+          // Don't set an error message for this - it's not critical
+        } finally {
+          setDeviceLoading(false);
+        }
+      }
+    };
+    
+    loadConnectedDevices();
+  }, [getConnectedDevices, loading, profileData, user, updateDeviceActivity]);
 
   const handleLogout = () => {
     logout();
@@ -152,6 +200,42 @@ function Dashboard() {
       setError(error.message || 'Failed to update display name');
     } finally {
       setSavingName(false);
+    }
+  };
+
+  const handleRemoveDevice = async (deviceId) => {
+    try {
+      await removeConnectedDevice(deviceId);
+      // Update the UI by removing the device
+      setConnectedDevices(prevDevices => 
+        prevDevices.filter(device => device.deviceId !== deviceId)
+      );
+    } catch (error) {
+      console.error('Error removing device:', error);
+      setError(error.message || 'Failed to remove device');
+    }
+  };
+  
+  // Helper function to format dates
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    }).format(date);
+  };
+
+  // Helper function to get the appropriate icon for device type
+  const getDeviceIcon = (type) => {
+    switch (type) {
+      case 'desktop':
+        return <ComputerIcon />;
+      case 'mobile':
+        return <SmartphoneIcon />;
+      case 'tablet':
+        return <TabletIcon />;
+      default:
+        return <WebIcon />;
     }
   };
   
@@ -277,8 +361,84 @@ function Dashboard() {
           </Box>
         </Paper>
         
-        {/* Recent Activity Section */}
+        {/* Connected Services Section */}
         <Paper sx={{ p: 3, mt: 2 }}>
+          <Typography variant="h6" gutterBottom>
+            Connected Services
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          
+          <Typography variant="body1" paragraph>
+            View and manage all devices signed into your Nimbus account. Your data is automatically synced across these devices, including bookmarks, tabs, browsing history, and saved passwords.
+          </Typography>
+          
+          {deviceLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}>
+              <CircularProgress size={32} />
+            </Box>
+          ) : connectedDevices.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No devices are currently connected to your account besides this one.
+            </Alert>
+          ) : (
+            <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+              {connectedDevices.map((device) => (
+                <ListItem key={device.deviceId} alignItems="flex-start" divider>
+                  <ListItemIcon>
+                    {getDeviceIcon(device.type)}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        {device.name}
+                        {device.isCurrentDevice && (
+                          <Chip 
+                            label="Current Device" 
+                            size="small" 
+                            color="primary" 
+                            variant="outlined"
+                            sx={{ ml: 1, fontSize: '0.75rem' }}
+                          />
+                        )}
+                      </Box>
+                    }
+                    secondary={
+                      <>
+                        <Typography component="span" variant="body2" color="text.primary">
+                          Last active: {formatDate(device.lastActive)}
+                        </Typography>
+                        <br />
+                        <Typography component="span" variant="body2">
+                          Location: {device.location}
+                        </Typography>
+                      </>
+                    }
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton 
+                      edge="end" 
+                      aria-label="remove device" 
+                      disabled={device.isCurrentDevice}
+                      onClick={() => handleRemoveDevice(device.deviceId)}
+                    >
+                      <DeleteIcon color={device.isCurrentDevice ? "disabled" : "error"} />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+          )}
+          
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center' }}>
+            <InfoIcon color="info" fontSize="small" sx={{ mr: 1 }} />
+            <Typography variant="body2" color="text.secondary">
+              Removing a device will sign out the account on that device and stop synchronization.
+            </Typography>
+          </Box>
+        </Paper>
+        
+        {/* Recent Activity Section */}
+        <Paper sx={{ p: 3, mt: 2, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
             Recent Activity
           </Typography>

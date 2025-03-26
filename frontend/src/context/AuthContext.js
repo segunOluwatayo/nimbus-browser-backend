@@ -8,6 +8,8 @@ export const AuthProvider = ({ children }) => {
   const [requires2FA, setRequires2FA] = useState(false);
   const [tempUserEmail, setTempUserEmail] = useState(null); // Store email temporarily for 2FA flow
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
+  // Add state for the device ID
+const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '');
 
   // Token refresh function
   const refreshAccessToken = async () => {
@@ -259,7 +261,13 @@ export const AuthProvider = ({ children }) => {
         throw new Error(data.message || 'Login failed');
       }
       
-      // Instead of immediately setting tokens and user, we need to trigger 2FA
+      // Store deviceId if provided
+      if (data.deviceId) {
+        localStorage.setItem('deviceId', data.deviceId);
+        setDeviceId(data.deviceId);
+      }
+      
+      // Continue with setting up 2FA
       setTempUserEmail(email);
       setRequires2FA(true);
       setIsLoading(false);
@@ -273,6 +281,7 @@ export const AuthProvider = ({ children }) => {
       throw error;
     }
   };
+  
 
   // Send 2FA code to user's email
   const send2FACode = async (email) => {
@@ -394,7 +403,11 @@ export const AuthProvider = ({ children }) => {
       setRequires2FA(false);
       setTempUserEmail(null);
       setIsLoading(false);
-      
+      // After 2FA verification, complete the login process
+    if (data.deviceId) {
+      localStorage.setItem('deviceId', data.deviceId);
+      setDeviceId(data.deviceId);
+    }
       return true;
     } catch (error) {
       console.error("2FA verification error:", error);
@@ -448,6 +461,124 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('tempPassword');
   };
 
+  const getConnectedDevices = async () => {
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const currentDeviceId = localStorage.getItem('deviceId');
+      
+      if (!accessToken || !currentDeviceId) {
+        throw new Error("Not authenticated or missing device information");
+      }
+      
+      const response = await fetch(`${apiUrl}/api/devices`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Device-Id': currentDeviceId
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to fetch devices");
+      }
+      
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error("Error fetching connected devices:", error);
+      throw error;
+    }
+  };
+  
+  // Add function to register the current device
+  const registerDevice = async () => {
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const currentDeviceId = localStorage.getItem('deviceId');
+      
+      if (!accessToken || !currentDeviceId) {
+        throw new Error("Not authenticated or missing device information");
+      }
+      
+      const response = await fetch(`${apiUrl}/api/devices/register`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Device-Id': currentDeviceId
+        },
+        body: JSON.stringify({ deviceId: currentDeviceId })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to register device");
+      }
+      
+      const data = await response.json();
+      return data.data;
+    } catch (error) {
+      console.error("Error registering device:", error);
+      throw error;
+    }
+  };
+  
+  // Add function to remove a device
+  const removeConnectedDevice = async (deviceId) => {
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const currentDeviceId = localStorage.getItem('deviceId');
+      
+      if (!accessToken || !currentDeviceId) {
+        throw new Error("Not authenticated or missing device information");
+      }
+      
+      const response = await fetch(`${apiUrl}/api/devices/${deviceId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Device-Id': currentDeviceId
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to remove device");
+      }
+      
+      return true;
+    } catch (error) {
+      console.error("Error removing connected device:", error);
+      throw error;
+    }
+  };
+  
+  // Add function to update device last active time
+  const updateDeviceActivity = async () => {
+    try {
+      const accessToken = localStorage.getItem('accessToken');
+      const currentDeviceId = localStorage.getItem('deviceId');
+      
+      if (!accessToken || !currentDeviceId) {
+        return false; // Silently fail if not authenticated
+      }
+      
+      const response = await fetch(`${apiUrl}/api/devices/active`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Device-Id': currentDeviceId
+        }
+      });
+      
+      return response.ok;
+    } catch (error) {
+      console.error("Error updating device activity:", error);
+      return false;
+    }
+  };
+
   // Logout: Invalidate the session on the backend and clear the user state.
   const logout = async () => {
     try {
@@ -481,7 +612,8 @@ export const AuthProvider = ({ children }) => {
     
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
-    
+    const deviceId = localStorage.getItem('deviceId');
+
     if (accessToken && refreshToken) {
       console.log('Auth tokens found. Attempting to restore session...');
       setIsLoading(true);
@@ -492,6 +624,18 @@ export const AuthProvider = ({ children }) => {
           console.log('Fetching user profile...');
           const userData = await fetchUserProfile();
           console.log('User session restored successfully:', userData);
+
+           // Register this device if we have a device ID
+        if (deviceId) {
+          try {
+            await registerDevice();
+            console.log('Device registered successfully');
+          } catch (deviceError) {
+            console.error('Error registering device:', deviceError);
+            // Continue anyway - this isn't critical
+          }
+        }
+
           setIsLoading(false);
         } catch (err) {
           console.error('Error restoring session:', err);
@@ -540,6 +684,11 @@ export const AuthProvider = ({ children }) => {
       send2FACode,
       verify2FACode,
       reset2FAState,
+      deviceId,
+    getConnectedDevices,
+    registerDevice,
+    removeConnectedDevice,
+    updateDeviceActivity,
       tempUserEmail
     }}>
       {children}
