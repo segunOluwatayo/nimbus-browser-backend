@@ -487,13 +487,13 @@ function Dashboard() {
         </Paper>
 
         {/* Delete Account Section */}
-<Paper sx={{ p: 3, mt: 2, mb: 3, bgcolor: 'error.light' }}>
+        <Paper sx={{ p: 3, mt: 2, mb: 3, bgcolor: 'error.light' }}>
   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
     <Box>
-      <Typography variant="h6" gutterBottom color="error.dark">
+      <Typography variant="h6" gutterBottom color="error.contrastText">
         Delete Account
       </Typography>
-      <Typography variant="body2" color="error.dark">
+      <Typography variant="body2" color="error.contrastText">
         Permanently delete your account and all associated data including bookmarks, tabs, history, and saved passwords.
       </Typography>
     </Box>
