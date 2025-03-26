@@ -120,9 +120,11 @@ exports.googleLogin = (req, res) => {
   res.redirect(authUrl);
 };
 
+// Updated googleCallback function in server/src/controllers/authController.js
 exports.googleCallback = async (req, res) => {
   try {
     const code = req.query.code;
+    const isMobile = req.query.mobile === 'true'; // Check if request is from mobile app
     const baseUrl = process.env.APP_URL || 'http://localhost:3000';
     let frontendUrl = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3001';
     
@@ -198,7 +200,7 @@ exports.googleCallback = async (req, res) => {
     
     // Redirect to frontend with tokens and device ID
     frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
-    res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&deviceId=${deviceId}`);
+    res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&deviceId=${deviceId}&mobile=${isMobile}`);
     
   } catch (error) {
     console.error("Google OAuth error:", error);
