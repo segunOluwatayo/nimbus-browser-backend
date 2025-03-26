@@ -657,15 +657,15 @@ const deleteAccount = async () => {
           console.log('User session restored successfully:', userData);
 
            // Register this device if we have a device ID
-        if (deviceId) {
-          try {
-            await registerDevice();
-            console.log('Device registered successfully');
-          } catch (deviceError) {
-            console.error('Error registering device:', deviceError);
-            // Continue anyway - this isn't critical
+          if (deviceId) {
+            try {
+              await registerDevice();
+              console.log('Device registered successfully');
+            } catch (deviceError) {
+              console.error('Error registering device:', deviceError);
+              // Continue anyway - this isn't critical
+            }
           }
-        }
 
           setIsLoading(false);
         } catch (err) {
@@ -699,7 +699,7 @@ const deleteAccount = async () => {
     } else {
       console.log('No auth tokens found. User needs to log in.');
     }
-  }, []);
+  }, [fetchUserProfile, refreshAccessToken, registerDevice]);
 
   return (
     <AuthContext.Provider value={{ 
