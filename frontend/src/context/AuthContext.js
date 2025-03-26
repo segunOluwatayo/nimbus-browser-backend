@@ -7,7 +7,9 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
   const [tempUserEmail, setTempUserEmail] = useState(null); // Store email temporarily for 2FA flow
-  const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
+  // const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
+  const isProduction = process.env.NODE_ENV === 'production';
+  const apiUrl = isProduction ? '' : (process.env.REACT_APP_API_URL || "http://localhost:3000");
   // Add state for the device ID
 const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '');
 

@@ -3,11 +3,27 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
 const securityMiddleware = (app) => {
-  // Use Helmet to secure HTTP headers
-  app.use(helmet());
+  // Use Helmet with custom CSP configuration
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          connectSrc: ["'self'", process.env.REACT_APP_API_URL || "*"],
+          scriptSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:"],
+          fontSrc: ["'self'", "data:"],
+        },
+      },
+    })
+  );
 
-  // Setup CORS with default settings (open for now, can be restricted later)
-  app.use(cors());
+  // Setup CORS with your domain
+  app.use(cors({
+    origin: process.env.REACT_APP_FRONTEND_URL || '*',
+    credentials: true
+  }));
 
   // Apply rate limiting: 20 requests per minute per IP
   const limiter = rateLimit({
