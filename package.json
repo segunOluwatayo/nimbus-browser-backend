@@ -1,11 +1,16 @@
+
 {
-  "name": "nimbus-browser-backend",
+  "name": "nimbus-browser",
   "version": "1.0.0",
-  "description": "Nimbus Browser Backend with Cross-Device Synchronization",
+  "description": "Nimbus Browser with Cross-Device Synchronization",
   "main": "server/src/server.js",
   "scripts": {
     "start": "node server/src/server.js",
-    "dev": "nodemon server/src/server.js"
+    "build": "cd frontend && npm install && npm run build",
+    "dev:server": "nodemon server/src/server.js",
+    "dev:client": "cd frontend && npm start",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "postinstall": "npm run build"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -28,8 +33,12 @@
     "speakeasy": "^2.0.0"
   },
   "devDependencies": {
+    "concurrently": "^7.6.0",
     "nodemon": "^2.0.15"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "engines": {
+    "node": "18.x"
+  }
 }
