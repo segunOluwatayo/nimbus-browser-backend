@@ -12,7 +12,7 @@ const securityMiddleware = (app) => {
   // Apply rate limiting: 20 requests per minute per IP
   const limiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 20,
+    max: 10000, //change it back to 20 when you are done testing
     message: 'Too many requests, please try again later.',
   });
   app.use(limiter);
