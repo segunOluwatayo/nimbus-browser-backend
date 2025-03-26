@@ -17,6 +17,11 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
   Chip
 } from '@mui/material';
 import { 
@@ -30,6 +35,7 @@ import {
 import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ProfileHeader from '../components/ProfileHeader';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
 
 function Dashboard() {
   const { 
@@ -38,7 +44,8 @@ function Dashboard() {
     fetchUserProfile, 
     getConnectedDevices, 
     removeConnectedDevice,
-    updateDeviceActivity
+    updateDeviceActivity,
+    deleteAccount 
   } = useContext(AuthContext);
   
   const [loading, setLoading] = useState(true);
@@ -50,6 +57,10 @@ function Dashboard() {
   const [error, setError] = useState('');
   const [connectedDevices, setConnectedDevices] = useState([]);
   const navigate = useNavigate();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
   // Check for auth tokens on component mount
@@ -272,6 +283,33 @@ function Dashboard() {
     );
   }
 
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'delete my account') {
+      setDeleteError('Please type "delete my account" to confirm');
+      return;
+    }
+  
+    setDeletingAccount(true);
+    setDeleteError('');
+    
+    try {
+      // Call a function that will be added to the AuthContext
+      await deleteAccount();
+      
+      // Clear local storage and redirect to login page
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('deviceId');
+      
+      // Redirect to login page
+      navigate('/');
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      setDeleteError(error.message || 'Failed to delete account. Please try again.');
+      setDeletingAccount(false);
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {hasUserData && (
@@ -447,6 +485,95 @@ function Dashboard() {
             Your synchronized data will appear here. Stay connected across all your devices.
           </Typography>
         </Paper>
+
+        {/* Delete Account Section */}
+<Paper sx={{ p: 3, mt: 2, mb: 3, bgcolor: 'error.light' }}>
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <Box>
+      <Typography variant="h6" gutterBottom color="error.dark">
+        Delete Account
+      </Typography>
+      <Typography variant="body2" color="error.dark">
+        Permanently delete your account and all associated data including bookmarks, tabs, history, and saved passwords.
+      </Typography>
+    </Box>
+    <Button 
+      variant="contained" 
+      color="error" 
+      startIcon={<DeleteForeverIcon />}
+      onClick={() => setDeleteDialogOpen(true)}
+    >
+      Delete Account
+    </Button>
+  </Box>
+</Paper>
+
+{/* Delete Account Confirmation Dialog */}
+<Dialog
+  open={deleteDialogOpen}
+  onClose={() => {
+    setDeleteDialogOpen(false);
+    setDeleteConfirmText('');
+    setDeleteError('');
+  }}
+>
+  <DialogTitle>Delete Account Permanently?</DialogTitle>
+  <DialogContent>
+    <DialogContentText sx={{ mb: 2 }}>
+      This action <strong>cannot be undone</strong>. Deleting your account will:
+    </DialogContentText>
+    <Box component="ul" sx={{ pl: 2 }}>
+      <Typography component="li" variant="body2">
+        Permanently delete all your bookmarks
+      </Typography>
+      <Typography component="li" variant="body2">
+        Remove all saved passwords
+      </Typography>
+      <Typography component="li" variant="body2">
+        Delete your browsing history
+      </Typography>
+      <Typography component="li" variant="body2">
+        Remove all synchronized tabs
+      </Typography>
+      <Typography component="li" variant="body2">
+        Sign you out from all connected devices
+      </Typography>
+    </Box>
+    <DialogContentText sx={{ mt: 2, mb: 3 }}>
+      To confirm, please type <strong>delete my account</strong> below:
+    </DialogContentText>
+    <TextField
+      autoFocus
+      fullWidth
+      value={deleteConfirmText}
+      onChange={(e) => setDeleteConfirmText(e.target.value)}
+      error={!!deleteError}
+      helperText={deleteError}
+      disabled={deletingAccount}
+      placeholder="delete my account"
+    />
+  </DialogContent>
+  <DialogActions>
+    <Button 
+      onClick={() => {
+        setDeleteDialogOpen(false);
+        setDeleteConfirmText('');
+        setDeleteError('');
+      }} 
+      disabled={deletingAccount}
+    >
+      Cancel
+    </Button>
+    <Button 
+      variant="contained" 
+      color="error" 
+      disabled={deleteConfirmText !== 'delete my account' || deletingAccount}
+      onClick={handleDeleteAccount}
+    >
+      {deletingAccount ? <CircularProgress size={24} color="inherit" /> : 'Delete Account'}
+    </Button>
+  </DialogActions>
+</Dialog>
       </Container>
     </Box>
   );

@@ -605,6 +605,37 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
     setTempUserEmail(null);
   };
 
+const deleteAccount = async () => {
+  try {
+    setIsLoading(true);
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      throw new Error("Not authenticated");
+    }
+    
+    const response = await fetch(`${apiUrl}/api/users/me`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to delete account");
+    }
+    
+    // Clear user data
+    setUser(null);
+    setIsLoading(false);
+    return true;
+  } catch (error) {
+    setIsLoading(false);
+    console.error("Error deleting account:", error);
+    throw error;
+  }
+};
+
   // On mount, check if we have tokens in localStorage and fetch user profile
   // Update the useEffect in AuthContext.js
   useEffect(() => {
@@ -689,6 +720,7 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
     registerDevice,
     removeConnectedDevice,
     updateDeviceActivity,
+    deleteAccount,
       tempUserEmail
     }}>
       {children}

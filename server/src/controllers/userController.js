@@ -1,3 +1,11 @@
+const mongoose = require('mongoose');
+const Bookmark = require('../models/Bookmark');
+const Tab = require('../models/Tab');
+const History = require('../models/History');
+const Password = require('../models/Password');
+const RefreshToken = require('../models/RefreshToken');
+const ConnectedDevice = require('../models/ConnectedDevice');
+
 const User = require('../models/User');
 const fs = require('fs');
 const path = require('path');
@@ -168,6 +176,47 @@ exports.deleteProfilePicture = async (req, res) => {
     });
   } catch (error) {
     console.error("Error removing profile picture:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Start a session for transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+    
+    try {
+      // Delete all user data from various collections
+      await Promise.all([
+        // Delete user data from all collections
+        Bookmark.deleteMany({ userId }, { session }),
+        Tab.deleteMany({ userId }, { session }),
+        History.deleteMany({ userId }, { session }),
+        Password.deleteMany({ userId }, { session }),
+        RefreshToken.deleteMany({ userId }, { session }),
+        ConnectedDevice.deleteMany({ userId }, { session }),
+        
+        // Finally, delete the user
+        User.findByIdAndDelete(userId, { session })
+      ]);
+      
+      // Commit the transaction
+      await session.commitTransaction();
+      
+      res.status(200).json({ message: 'Account deleted successfully' });
+    } catch (error) {
+      // Abort transaction if any operation fails
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      // End session
+      session.endSession();
+    }
+  } catch (error) {
+    console.error("Error deleting account:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };

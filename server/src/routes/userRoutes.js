@@ -12,6 +12,8 @@ router.get('/me', userController.getUserProfile);
 // Update user profile
 router.put('/me', userController.updateUserProfile);
 
+router.delete('/me', userController.deleteAccount);
+
 // Profile picture routes
 router.post('/profile-picture', userController.uploadMiddleware, userController.uploadProfilePicture);
 router.delete('/profile-picture', userController.deleteProfilePicture);
