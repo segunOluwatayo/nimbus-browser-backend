@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 
 export const AuthContext = createContext();
 
@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
 const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '');
 
   // Token refresh function
-  const refreshAccessToken = async () => {
+  const refreshAccessToken = useCallback(async () => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (!refreshToken) {
@@ -37,10 +37,10 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
       console.error("Error refreshing token:", error);
       return false;
     }
-  };
-
+  }, [apiUrl]);
+  
   // Fetch user profile using a secure cookie (HttpOnly cookie is sent automatically)
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = useCallback(async () => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       if (!accessToken) {
@@ -126,7 +126,7 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
       
       throw error;
     }
-  };
+  }, [apiUrl, refreshAccessToken]);
 
   // Upload profile picture
   const uploadProfilePicture = async (file) => {
@@ -492,7 +492,7 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
   };
   
   // Add function to register the current device
-  const registerDevice = async () => {
+  const registerDevice = useCallback(async () => {
     try {
       const accessToken = localStorage.getItem('accessToken');
       const currentDeviceId = localStorage.getItem('deviceId');
@@ -522,7 +522,7 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
       console.error("Error registering device:", error);
       throw error;
     }
-  };
+  }, [apiUrl]);
   
   // Add function to remove a device
   const removeConnectedDevice = async (deviceId) => {
