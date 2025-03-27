@@ -252,7 +252,7 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
       ? `${apiUrl}/api/auth/login?mobile=true`
       : `${apiUrl}/api/auth/login`;
 
-      const response = await fetch(`${apiUrl}/api/auth/login`, {
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
