@@ -249,50 +249,61 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
   };
 
   // Login function with secure credentials
-  const login = async ({ email, password, }, isMobile = false) => {
-    setIsLoading(true);
-    try {
-
-      const url = isMobile
+const login = async ({ email, password }, isMobile = false) => {
+  setIsLoading(true);
+  try {
+    const url = isMobile
       ? `${apiUrl}/api/auth/login?mobile=true`
       : `${apiUrl}/api/auth/login`;
 
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      
-      const contentType = response.headers.get("content-type");
-      if (!contentType || !contentType.includes("application/json")) {
-        throw new Error("Server returned non-JSON response. Please try again later.");
-      }
-      
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-      
-      // Store deviceId if provided
-      if (data.deviceId) {
-        localStorage.setItem('deviceId', data.deviceId);
-        setDeviceId(data.deviceId);
-      }
-      
-      // Continue with setting up 2FA
-      setTempUserEmail(email);
-      setRequires2FA(true);
+    // For mobile logins, consider not following redirects automatically
+    // (optional: you can set redirect: 'manual' if needed)
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+      // redirect: isMobile ? 'manual' : 'follow'  // optionally, if you want to manually handle redirection
+    });
+
+    if (isMobile) {
+      // In mobile mode, we assume the backend triggers a deep link redirect.
+      // Bypass the JSON check, and let the browser handle the redirection.
       setIsLoading(false);
-      
-      // Initiate 2FA process
-      await send2FACode(email);
-      
-      return data;
-    } catch (error) {
-      setIsLoading(false);
-      throw error;
+      console.log('Mobile login triggered; waiting for deep link redirect.');
+      return; // or return a value if needed
     }
-  };
+
+    // For non-mobile flows, enforce JSON response
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      throw new Error("Server returned non-JSON response. Please try again later.");
+    }
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Login failed');
+    }
+
+    // Store deviceId if provided
+    if (data.deviceId) {
+      localStorage.setItem('deviceId', data.deviceId);
+      setDeviceId(data.deviceId);
+    }
+
+    // Set up 2FA flow
+    setTempUserEmail(email);
+    setRequires2FA(true);
+    setIsLoading(false);
+
+    // Initiate 2FA process
+    await send2FACode(email);
+    return data;
+  } catch (error) {
+    setIsLoading(false);
+    throw error;
+  }
+};
+
   
 
   // Send 2FA code to user's email
