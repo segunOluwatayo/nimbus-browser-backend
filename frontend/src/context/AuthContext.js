@@ -251,60 +251,52 @@ const [mobileLogin] = useState(false);
   };
 
   // Login function with secure credentials
-const login = async ({ email, password }, isMobile = false) => {
-  setIsLoading(true);
-  try {
-    const url = isMobile
-      ? `${apiUrl}/api/auth/login?mobile=true`
-      : `${apiUrl}/api/auth/login`;
-
-    // For mobile logins, consider not following redirects automatically
-    // (optional: you can set redirect: 'manual' if needed)
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-      // redirect: isMobile ? 'manual' : 'follow'  // optionally, if you want to manually handle redirection
-    });
-
-    if (isMobile) {
-      // In mobile mode, we assume the backend triggers a deep link redirect.
-      // Bypass the JSON check, and let the browser handle the redirection.
+  const login = async ({ email, password }, isMobile = false) => {
+    setIsLoading(true);
+    try {
+      const url = isMobile
+        ? `${apiUrl}/api/auth/login?mobile=true`
+        : `${apiUrl}/api/auth/login`;
+  
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      
+      // For both mobile and regular flows, handle JSON response
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("Server returned non-JSON response. Please try again later.");
+      }
+      
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Login failed');
+      }
+  
+      // Store deviceId if provided
+      if (data.deviceId) {
+        localStorage.setItem('deviceId', data.deviceId);
+        setDeviceId(data.deviceId);
+      }
+  
+      // Set up 2FA flow regardless of mobile or web
+      setTempUserEmail(email);
+      setRequires2FA(true);
       setIsLoading(false);
-      console.log('Mobile login triggered; waiting for deep link redirect.');
-      return; // or return a value if needed
+      
+      // Store the mobile flag for later use after 2FA
+      localStorage.setItem('isMobileLogin', isMobile ? 'true' : 'false');
+  
+      // Initiate 2FA process
+      await send2FACode(email);
+      return data;
+    } catch (error) {
+      setIsLoading(false);
+      throw error;
     }
-
-    // For non-mobile flows, enforce JSON response
-    const contentType = response.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      throw new Error("Server returned non-JSON response. Please try again later.");
-    }
-
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.message || 'Login failed');
-    }
-
-    // Store deviceId if provided
-    if (data.deviceId) {
-      localStorage.setItem('deviceId', data.deviceId);
-      setDeviceId(data.deviceId);
-    }
-
-    // Set up 2FA flow
-    setTempUserEmail(email);
-    setRequires2FA(true);
-    setIsLoading(false);
-
-    // Initiate 2FA process
-    await send2FACode(email);
-    return data;
-  } catch (error) {
-    setIsLoading(false);
-    throw error;
-  }
-};
+  };
 
   
 
@@ -372,10 +364,11 @@ const login = async ({ email, password }, isMobile = false) => {
         throw new Error("Authentication failed: Missing temporary credentials");
       }
       
-      // Use the mobile endpoint if mobile flow is active
-      const loginUrl = mobileLogin 
-        ? `${apiUrl}/api/auth/login?mobile=true` 
-        : `${apiUrl}/api/auth/login`;
+      // Check if this is a mobile login
+      const isMobileLogin = localStorage.getItem('isMobileLogin') === 'true';
+      
+      // Login URL
+      const loginUrl = `${apiUrl}/api/auth/login`;
       
       const authResponse = await fetch(loginUrl, {
         method: 'POST',
@@ -383,14 +376,6 @@ const login = async ({ email, password }, isMobile = false) => {
         body: JSON.stringify({ email: tempUserEmail, password: tempPassword }),
       });
       
-      if (mobileLogin) {
-        // For mobile, bypass JSON parsing and assume the backend will trigger the deep link redirect.
-        setIsLoading(false);
-        console.log('Mobile login after 2FA triggered; waiting for deep link redirect.');
-        return;
-      }
-      
-      // For non-mobile flows, expect JSON
       console.log(`Final login response status: ${authResponse.status}`);
       
       let authData;
@@ -417,16 +402,20 @@ const login = async ({ email, password }, isMobile = false) => {
       localStorage.setItem('accessToken', authData.accessToken);
       localStorage.setItem('refreshToken', authData.refreshToken);
       localStorage.removeItem('tempPassword');
+      localStorage.removeItem('isMobileLogin');
       
-      await new Promise(resolve => setTimeout(resolve, 500));
-      console.log("Fetching user profile after successful login");
-      
-      try {
-        const profileData = await fetchUserProfile();
-        console.log("Profile fetched successfully after login:", profileData);
-      } catch (profileError) {
-        console.error("Error fetching profile after login:", profileError);
+      // If this is a mobile login, redirect to deep link
+      if (isMobileLogin) {
+        console.log("Redirecting to mobile app after 2FA verification");
+        // Construct deep link URL with tokens
+        const deepLinkUrl = `mobilebrowser://auth?accessToken=${authData.accessToken}&refreshToken=${authData.refreshToken}`;
+        window.location.href = deepLinkUrl;
+        setIsLoading(false);
+        return true;
       }
+      
+      // For web login, continue with normal flow
+      await fetchUserProfile();
       
       setRequires2FA(false);
       setTempUserEmail(null);
