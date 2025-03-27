@@ -4,7 +4,12 @@ const rateLimit = require('express-rate-limit');
 
 const securityMiddleware = (app) => {
   // Use Helmet with custom CSP configuration
-  app.use(
+  if (process.env.NODE_ENV !== 'production') {
+    app.use(helmet({
+      contentSecurityPolicy: false // Disable CSP in development
+    }));
+  } else {
+    app.use(
     helmet({
       contentSecurityPolicy: {
         directives: {
@@ -18,13 +23,13 @@ const securityMiddleware = (app) => {
       },
     })
   );
+}
 
   // Setup CORS with your domain
   app.use(cors({
-    origin: process.env.REACT_APP_FRONTEND_URL || '*',
+    origin: process.env.NODE_ENV !== 'production' ? '*' : (process.env.REACT_APP_FRONTEND_URL || '*'),
     credentials: true
   }));
-
   // Apply rate limiting: 20 requests per minute per IP
   const limiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
