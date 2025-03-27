@@ -67,6 +67,8 @@ function Login() {
   const [searchParams] = useSearchParams();
   const isMobileFromUrl = searchParams.get('mobile') === 'true';
 
+  console.log("isMobileFromUrl:", isMobileFromUrl, typeof isMobileFromUrl);
+
   useEffect(() => {
     setPasswordStrength(getPasswordStrength(password));
   }, [password]);
@@ -104,7 +106,7 @@ function Login() {
         await signup({ email, password });
         // Don't navigate yet - we'll wait for 2FA verification
       } else {
-        await login({ email, password, isMobileFromUrl });
+        await login({ email, password }, isMobileFromUrl);
         // Don't navigate yet - we'll wait for 2FA verification
       }
     } catch (err) {

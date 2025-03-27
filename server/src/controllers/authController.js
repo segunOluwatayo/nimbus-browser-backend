@@ -64,6 +64,7 @@ exports.signup = async (req, res) => {
 };
 
 exports.login = async (req, res) => {
+  console.log("Received req.query.mobile =", req.query.mobile);
   try {
     const { email, password } = req.body;
     const isMobile = req.query.mobile === 'true';
