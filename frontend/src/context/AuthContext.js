@@ -364,20 +364,31 @@ const login = async ({ email, password }, isMobile = false) => {
       
       console.log("2FA verification successful, completing login");
       
-      // Get the temporary password from localStorage
       const tempPassword = localStorage.getItem('tempPassword');
       if (!tempPassword) {
         console.error("Temporary password not found in localStorage");
         throw new Error("Authentication failed: Missing temporary credentials");
       }
       
-      // Now complete the login/signup process
-      const authResponse = await fetch(`${apiUrl}/api/auth/login`, {
+      // Use the mobile endpoint if mobile flow is active
+      const loginUrl = mobileLogin 
+        ? `${apiUrl}/api/auth/login?mobile=true` 
+        : `${apiUrl}/api/auth/login`;
+      
+      const authResponse = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: tempUserEmail, password: tempPassword }),
       });
       
+      if (mobileLogin) {
+        // For mobile, bypass JSON parsing and assume the backend will trigger the deep link redirect.
+        setIsLoading(false);
+        console.log('Mobile login after 2FA triggered; waiting for deep link redirect.');
+        return;
+      }
+      
+      // For non-mobile flows, expect JSON
       console.log(`Final login response status: ${authResponse.status}`);
       
       let authData;
@@ -401,36 +412,29 @@ const login = async ({ email, password }, isMobile = false) => {
       }
       
       console.log("Login successful after 2FA, storing tokens");
-      
-      // Store tokens in localStorage
       localStorage.setItem('accessToken', authData.accessToken);
       localStorage.setItem('refreshToken', authData.refreshToken);
-      
-      // Remove temporary password
       localStorage.removeItem('tempPassword');
       
-      // Add small delay before fetching profile to ensure tokens are properly stored
       await new Promise(resolve => setTimeout(resolve, 500));
-      
       console.log("Fetching user profile after successful login");
       
       try {
-        // Fetch the complete user profile
         const profileData = await fetchUserProfile();
         console.log("Profile fetched successfully after login:", profileData);
       } catch (profileError) {
         console.error("Error fetching profile after login:", profileError);
-        // Continue anyway - we can try to fetch profile again in the Dashboard component
       }
       
       setRequires2FA(false);
       setTempUserEmail(null);
       setIsLoading(false);
-      // After 2FA verification, complete the login process
-    if (data.deviceId) {
-      localStorage.setItem('deviceId', data.deviceId);
-      setDeviceId(data.deviceId);
-    }
+      
+      if (data.deviceId) {
+        localStorage.setItem('deviceId', data.deviceId);
+        setDeviceId(data.deviceId);
+      }
+      
       return true;
     } catch (error) {
       console.error("2FA verification error:", error);
@@ -438,7 +442,7 @@ const login = async ({ email, password }, isMobile = false) => {
       throw error;
     }
   };
-
+  
   // Signup function with secure credentials
   const signup = async ({ email, password }) => {
     setIsLoading(true);
