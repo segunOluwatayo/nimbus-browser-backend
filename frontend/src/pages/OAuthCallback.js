@@ -23,32 +23,41 @@ function OAuthCallback() {
         localStorage.setItem('deviceId', deviceId);
       }
       
-      // For mobile app, redirect immediately without fetching profile
-      if (isFromMobileApp) {
-        // Construct mobile deep link URL
-        const deepLinkUrl = `mobilebrowser://auth?accessToken=${accessToken}&refreshToken=${refreshToken}`;
-        
-        // Redirect to the mobile app
-        window.location.href = deepLinkUrl;
-        return;
-      }
-      
-      // For web app, fetch profile and navigate to dashboard
+      // Fetch user profile
       fetchUserProfile()
-        .then(() => {
-          navigate('/dashboard');
+        .then((userProfile) => {
+          if (isFromMobileApp) {
+            // For mobile app - construct a deep link to return to the app
+            const deepLinkUrl = `mobilebrowser://auth?accessToken=${accessToken}&refreshToken=${refreshToken}&userId=${userProfile._id || userProfile.id}&displayName=${encodeURIComponent(userProfile.name || userProfile.email)}&email=${encodeURIComponent(userProfile.email)}`;
+            
+            // Redirect to the deep link and close window after a short delay
+            setTimeout(() => {
+              window.location.href = deepLinkUrl;
+              // Optional: attempt to close the window after redirection
+              setTimeout(() => window.close(), 1000);
+            }, 500);
+          } else {
+            // For desktop - navigate to dashboard
+            navigate('/dashboard');
+          }
         })
         .catch(error => {
           console.error('Error fetching user profile:', error);
-          navigate('/dashboard');
+          // Even if profile fetch fails, try to return to app for mobile
+          if (isFromMobileApp) {
+            const deepLinkUrl = `mobilebrowser://auth?accessToken=${accessToken}&refreshToken=${refreshToken}`;
+            window.location.href = deepLinkUrl;
+          } else {
+            navigate('/dashboard');
+          }
         });
     } else {
       // Handle error
-      const redirectUrl = isFromMobileApp 
-        ? 'mobilebrowser://auth?error=auth_failed'
-        : '/login?error=auth_failed';
-        
-      window.location.href = isFromMobileApp ? redirectUrl : navigate(redirectUrl);
+      if (isFromMobileApp) {
+        window.location.href = 'mobilebrowser://auth?error=auth_failed';
+      } else {
+        navigate('/login?error=auth_failed');
+      }
     }
   }, [location, navigate, fetchUserProfile]);
   
