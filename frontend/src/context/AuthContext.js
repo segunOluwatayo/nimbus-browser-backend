@@ -244,9 +244,14 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
   };
 
   // Login function with secure credentials
-  const login = async ({ email, password }) => {
+  const login = async ({ email, password, }, isMobile = false) => {
     setIsLoading(true);
     try {
+
+      const url = isMobile
+      ? `${apiUrl}/api/auth/login?mobile=true`
+      : `${apiUrl}/api/auth/login`;
+
       const response = await fetch(`${apiUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

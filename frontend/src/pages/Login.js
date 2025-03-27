@@ -1,4 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Container, 
   Typography, 
@@ -63,6 +64,8 @@ function Login() {
   const [passwordStrength, setPasswordStrength] = useState({ strength: '', score: 0 });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [searchParams] = useSearchParams();
+  const isMobileFromUrl = searchParams.get('mobile') === 'true';
 
   useEffect(() => {
     setPasswordStrength(getPasswordStrength(password));
@@ -101,7 +104,7 @@ function Login() {
         await signup({ email, password });
         // Don't navigate yet - we'll wait for 2FA verification
       } else {
-        await login({ email, password });
+        await login({ email, password, isMobileFromUrl });
         // Don't navigate yet - we'll wait for 2FA verification
       }
     } catch (err) {
