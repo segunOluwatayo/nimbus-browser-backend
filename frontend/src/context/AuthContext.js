@@ -8,8 +8,13 @@ export const AuthProvider = ({ children }) => {
   const [requires2FA, setRequires2FA] = useState(false);
   const [tempUserEmail, setTempUserEmail] = useState(null); // Store email temporarily for 2FA flow
   // const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
+  // const isProduction = process.env.NODE_ENV === 'production';
+  // const apiUrl = isProduction ? '' : (process.env.REACT_APP_API_URL || "http://localhost:3000");
   const isProduction = process.env.NODE_ENV === 'production';
-  const apiUrl = isProduction ? '' : (process.env.REACT_APP_API_URL || "http://localhost:3000");
+const apiUrl = isProduction
+  ? 'https://nimbus-browser-backend-production.up.railway.app'  
+  : (process.env.REACT_APP_API_URL || "http://localhost:3000");
+
   // Add state for the device ID
 const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '');
 
