@@ -136,6 +136,70 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Internal server error" });
 });
 
+app.get('/oauth-callback', (req, res) => {
+  const { accessToken, userId, displayName, email, error, mobile } = req.query;
+  
+  // Handle error case
+  if (error) {
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Authentication Failed</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 40px 20px; }
+            .error { color: #f44336; font-size: 24px; margin-bottom: 20px; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">Authentication Failed</h1>
+          <p>There was a problem signing into your account.</p>
+          <p>Error: ${error}</p>
+        </body>
+      </html>
+    `);
+  }
+  
+  // Success case - use the variables in the template
+  const userDisplayName = displayName || email || userId || "User";
+  const tokenPreview = accessToken ? `${accessToken.substring(0, 10)}...` : "[token not provided]";
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Authentication Successful</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 40px 20px; }
+          .success { color: #4CAF50; font-size: 24px; margin-bottom: 20px; }
+          .loading { margin: 20px auto; width: 50px; height: 50px; border: 5px solid #f3f3f3; 
+                    border-top: 5px solid #3498db; border-radius: 50%; animation: spin 2s linear infinite; }
+          @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          .user-info { background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 20px auto; max-width: 400px; }
+          .token { font-family: monospace; background: #eee; padding: 4px; border-radius: 4px; }
+          .mobile-indicator { color: ${mobile === 'true' ? '#4CAF50' : '#999'}; font-style: italic; }
+        </style>
+      </head>
+      <body>
+        <h1 class="success">Authentication Successful!</h1>
+        <p>Welcome, ${userDisplayName}!</p>
+        
+        <div class="user-info">
+          <p><strong>User ID:</strong> ${userId || "Not provided"}</p>
+          <p><strong>Email:</strong> ${email || "Not provided"}</p>
+          <p><strong>Token:</strong> <span class="token">${tokenPreview}</span></p>
+          <p class="mobile-indicator">Mobile browser: ${mobile === 'true' ? 'Yes' : 'No'}</p>
+        </div>
+        
+        <div class="loading"></div>
+        <p>Your authentication has been processed.</p>
+        <p>You can close this window and return to the browser.</p>
+      </body>
+    </html>
+  `);
+});
 // Start the server using the HTTP server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

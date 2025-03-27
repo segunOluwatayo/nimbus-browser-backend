@@ -34,18 +34,13 @@ function OAuthCallback() {
         .then((userProfile) => {
           console.log('Fetched user profile:', userProfile);
           if (isFromMobileApp) {
-            // Construct deep link URL for mobile app
-            const deepLinkUrl = `mobilebrowser://auth?accessToken=${accessToken}&refreshToken=${refreshToken}&userId=${userProfile._id || userProfile.id}&displayName=${encodeURIComponent(userProfile.name || userProfile.email)}&email=${encodeURIComponent(userProfile.email)}`;
+            // Use a regular URL instead of a deep link - this will be intercepted by GeckoView
+            const redirectUrl = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&userId=${userProfile._id || userProfile.id}&displayName=${encodeURIComponent(userProfile.name || userProfile.email)}&email=${encodeURIComponent(userProfile.email)}&mobile=true`;
             
-            // Log the deep link URL to verify it
-            console.log('Constructed deepLinkUrl:', deepLinkUrl);
+            console.log('Redirecting to mobile callback URL:', redirectUrl);
             
-            // Redirect to deep link URL
-            setTimeout(() => {
-              window.location.href = deepLinkUrl;
-              // Optionally, try closing the window after redirection
-              setTimeout(() => window.close(), 1000);
-            }, 500);
+            // Redirect to the callback URL
+            window.location.href = redirectUrl;
           } else {
             // For desktop, navigate to the dashboard
             navigate('/dashboard');
@@ -54,9 +49,10 @@ function OAuthCallback() {
         .catch(error => {
           console.error('Error fetching user profile:', error);
           if (isFromMobileApp) {
-            const deepLinkUrl = `mobilebrowser://auth?accessToken=${accessToken}&refreshToken=${refreshToken}`;
-            console.log('Redirecting to deepLinkUrl due to error:', deepLinkUrl);
-            window.location.href = deepLinkUrl;
+            // Use standard URL here too
+            const redirectUrl = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&error=profile_fetch_failed&mobile=true`;
+            console.log('Redirecting to callback URL due to error:', redirectUrl);
+            window.location.href = redirectUrl;
           } else {
             navigate('/dashboard');
           }
@@ -65,7 +61,7 @@ function OAuthCallback() {
       // Log error condition when tokens are missing
       console.error('Missing tokens in OAuthCallback. Redirecting with error.');
       if (isFromMobileApp) {
-        window.location.href = 'mobilebrowser://auth?error=auth_failed';
+        window.location.href = 'https://nimbus-browser-backend-production.up.railway.app/oauth-callback?error=auth_failed&mobile=true';
       } else {
         navigate('/login?error=auth_failed');
       }

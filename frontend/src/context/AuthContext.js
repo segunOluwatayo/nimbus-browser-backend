@@ -407,8 +407,10 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
       if (isMobileLogin) {
         console.log("Redirecting to mobile app after 2FA verification");
         // Construct deep link URL with tokens
-        const deepLinkUrl = `mobilebrowser://auth?accessToken=${authData.accessToken}&refreshToken=${authData.refreshToken}`;
-        window.location.href = deepLinkUrl;
+        // const deepLinkUrl = `mobilebrowser://auth?accessToken=${authData.accessToken}&refreshToken=${authData.refreshToken}`;
+        // window.location.href = deepLinkUrl;
+        // Redirect to a regular URL that your GeckoView can intercept
+        window.location.href = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?accessToken=${authData.accessToken}&refreshToken=${authData.refreshToken}&mobile=true`;
         setIsLoading(false);
         return true;
       }
