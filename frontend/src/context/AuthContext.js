@@ -17,7 +17,6 @@ const apiUrl = isProduction
 
   // Add state for the device ID
 const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '');
-const [mobileLogin] = useState(false);
 
 
   // Token refresh function
