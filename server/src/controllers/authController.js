@@ -66,6 +66,7 @@ exports.signup = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const isMobile = req.query.mobile === 'true';
     // Find user
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "Invalid credentials" });
@@ -91,12 +92,18 @@ exports.login = async (req, res) => {
     });
     await tokenEntry.save();
 
+    if (isMobile) {
+      // Redirect to the OAuth callback route, which will trigger the deep linking to the mobile app.
+      const frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
+      res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&deviceId=${deviceId}&mobile=true`);
+    } else {
     res.status(200).json({ 
       message: "Login successful", 
       accessToken, 
       refreshToken,
       deviceId // Include the deviceId in the response
     });
+  }
   } catch (error) {
     console.error("Login error:", error);
     res.status(500).json({ message: "Internal server error" });
