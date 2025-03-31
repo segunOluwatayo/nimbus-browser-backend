@@ -620,7 +620,7 @@ const verify2FACode = async (token) => {
   };
 
   // Logout: Invalidate the session on the backend and clear the user state.
-  const logout = async () => {
+  const logout = async (fromMobileApp = false) => {
     try {
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
@@ -637,14 +637,39 @@ const verify2FACode = async (token) => {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('tempPassword');
+      
+      setUser(null);
+      setRequires2FA(false);
+      setTempUserEmail(null);
+      
+      // If this logout was initiated from a mobile app, attempt to redirect back
+      // to notify the app about the logout action
+      if (fromMobileApp) {
+        // Use a small timeout to ensure state is cleared before redirection
+        setTimeout(() => {
+          const redirectUrl = "nimbusbrowser://logout";
+          console.log("Redirecting to mobile app with logout action:", redirectUrl);
+          window.location.href = redirectUrl;
+        }, 300);
+      }
     } catch (error) {
       console.error("Logout error:", error);
+      // Even if there's an error, clear local state
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      setUser(null);
+      setRequires2FA(false);
+      setTempUserEmail(null);
+      
+      // Still attempt redirect for mobile app
+      if (fromMobileApp) {
+        setTimeout(() => {
+          window.location.href = "nimbusbrowser://logout";
+        }, 300);
+      }
     }
-    setUser(null);
-    setRequires2FA(false);
-    setTempUserEmail(null);
   };
-
+  
 const deleteAccount = async () => {
   try {
     setIsLoading(true);

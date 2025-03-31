@@ -147,6 +147,12 @@ function Dashboard() {
   }, [getConnectedDevices, loading, profileData, user, updateDeviceActivity]);
 
   const handleLogout = () => {
+     // Check if this request originated from a mobile app
+  const urlParams = new URLSearchParams(window.location.search);
+  const fromMobile = urlParams.get('fromMobile') === 'true';
+  
+  // Call logout with the fromMobile parameter
+    logout(fromMobile);
     logout();
     navigate('/');
   };
