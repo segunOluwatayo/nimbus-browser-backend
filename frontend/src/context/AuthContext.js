@@ -677,28 +677,16 @@ const verify2FACode = async (token) => {
         if (fromMobileApp) {
             console.log("Preparing mobile app redirect for logout...");
             
-            // First, try to use the custom scheme to notify the app
-            const customSchemeUrl = "nimbusbrowser://logout";
-            console.log(`Redirecting to mobile app with custom scheme: ${customSchemeUrl}`);
+            // Create a unique timestamp to prevent caching
+            const timestamp = new Date().getTime();
             
-            // Create an invisible iframe to try the custom scheme without leaving the page
-            const iframe = document.createElement('iframe');
-            iframe.style.display = 'none';
-            iframe.src = customSchemeUrl;
-            document.body.appendChild(iframe);
+            // Standard URL with parameters to signal logout to the app
+            // Using explicit logout=true parameter for mobile app to detect
+            const standardUrl = `https://nimbus-browser-backend-production.up.railway.app/logout_success?mobile=true&logged_out=true&t=${timestamp}`;
+            console.log(`Redirecting to standard URL: ${standardUrl}`);
             
-            // After a short delay, redirect to the standard URL that GeckoView will intercept
-            setTimeout(() => {
-                // Create a unique timestamp to prevent caching
-                const timestamp = new Date().getTime();
-                
-                // Standard URL with parameters to signal logout to the app
-                const standardUrl = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?action=logout&mobile=true&t=${timestamp}`;
-                console.log(`Redirecting to standard URL: ${standardUrl}`);
-                
-                // Use the top window to navigate
-                window.top.location.href = standardUrl;
-            }, 500);
+            // Use the top window to navigate
+            window.top.location.href = standardUrl;
         } else {
             // For web app, just redirect to login page
             console.log("Standard web logout completed. Redirecting to login page...");
@@ -725,7 +713,7 @@ const verify2FACode = async (token) => {
             setTimeout(() => {
                 // Create a unique timestamp to prevent caching
                 const timestamp = new Date().getTime();
-                const fallbackUrl = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?action=logout&mobile=true&error=true&t=${timestamp}`;
+                const fallbackUrl = `https://nimbus-browser-backend-production.up.railway.app/logout_success?mobile=true&logged_out=true&error=true&t=${timestamp}`;
                 window.location.href = fallbackUrl;
             }, 300);
         }
