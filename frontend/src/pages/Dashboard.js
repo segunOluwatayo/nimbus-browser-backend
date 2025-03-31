@@ -61,13 +61,11 @@ function Dashboard() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const location = location();
   const [isMobileApp, setIsMobileApp] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
   // Check for auth tokens on component mount
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
     const fromMobile = params.get('fromMobile') === 'true';
     setIsMobileApp(fromMobile);
     if (fromMobile) {
@@ -85,7 +83,7 @@ function Dashboard() {
       console.log('No auth tokens found. Redirecting to login...');
       navigate('/');
     }
-  }, [navigate] , [location.search]);
+  }, [navigate]);
 
   // Load user profile
   useEffect(() => {
