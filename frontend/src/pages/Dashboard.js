@@ -61,16 +61,10 @@ function Dashboard() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const [isMobileApp, setIsMobileApp] = useState(false);
   const apiUrl = process.env.REACT_APP_API_URL || "http://localhost:3000";
 
   // Check for auth tokens on component mount
   useEffect(() => {
-    const fromMobile = params.get('fromMobile') === 'true';
-    setIsMobileApp(fromMobile);
-    if (fromMobile) {
-      console.log('Request originated from mobile app');
-    }
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
     
@@ -153,7 +147,12 @@ function Dashboard() {
   }, [getConnectedDevices, loading, profileData, user, updateDeviceActivity]);
 
   const handleLogout = () => {
-    logout(isMobileApp);
+     // Check if this request originated from a mobile app
+  const urlParams = new URLSearchParams(window.location.search);
+  const fromMobile = urlParams.get('fromMobile') === 'true';
+  
+  // Call logout with the fromMobile parameter
+    logout(fromMobile);
     navigate('/');
   };
 
