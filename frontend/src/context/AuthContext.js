@@ -650,6 +650,9 @@ const verify2FACode = async (token) => {
           const redirectUrl = "nimbusbrowser://logout";
           console.log("Redirecting to mobile app with logout action:", redirectUrl);
           window.location.href = redirectUrl;
+          setTimeout(() => {
+            window.location.href = "https://nimbus-browser-backend-production.up.railway.app/oauth-callback?action=logout&mobile=true";
+          }, 300);
         }, 300);
       }
     } catch (error) {
@@ -669,7 +672,7 @@ const verify2FACode = async (token) => {
       }
     }
   };
-  
+
 const deleteAccount = async () => {
   try {
     setIsLoading(true);
