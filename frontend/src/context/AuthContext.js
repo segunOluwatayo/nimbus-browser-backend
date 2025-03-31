@@ -324,116 +324,137 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
   };
 
   // Verify 2FA code
-  const verify2FACode = async (token) => {
-    setIsLoading(true);
-    try {
-      if (!tempUserEmail) {
-        throw new Error("No user email found for 2FA verification");
-      }
-      
-      console.log(`Verifying 2FA code for email: ${tempUserEmail}`);
-      
-      const response = await fetch(`${apiUrl}/api/auth/2fa/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: tempUserEmail, token }),
-      });
-      
-      console.log(`2FA verification response status: ${response.status}`);
-      
-      let data;
-      try {
-        const text = await response.text();
-        console.log("2FA verification raw response:", text);
-        data = JSON.parse(text);
-      } catch (parseError) {
-        console.error("Error parsing 2FA verification response:", parseError);
-        throw new Error("Invalid server response during 2FA verification");
-      }
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Invalid 2FA code');
-      }
-      
-      console.log("2FA verification successful, completing login");
-      
-      const tempPassword = localStorage.getItem('tempPassword');
-      if (!tempPassword) {
-        console.error("Temporary password not found in localStorage");
-        throw new Error("Authentication failed: Missing temporary credentials");
-      }
-      
-      // Check if this is a mobile login
-      const isMobileLogin = localStorage.getItem('isMobileLogin') === 'true';
-      
-      // Login URL
-      const loginUrl = `${apiUrl}/api/auth/login`;
-      
-      const authResponse = await fetch(loginUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: tempUserEmail, password: tempPassword }),
-      });
-      
-      console.log(`Final login response status: ${authResponse.status}`);
-      
-      let authData;
-      try {
-        const authText = await authResponse.text();
-        console.log("Login response raw text:", authText);
-        authData = JSON.parse(authText);
-      } catch (parseError) {
-        console.error("Error parsing login response:", parseError);
-        throw new Error("Invalid server response during login");
-      }
-      
-      if (!authResponse.ok) {
-        console.error("Authentication failed after 2FA:", authData);
-        throw new Error(authData.message || 'Authentication failed after 2FA');
-      }
-      
-      if (!authData.accessToken || !authData.refreshToken) {
-        console.error("Missing tokens in login response:", authData);
-        throw new Error("Server did not return required authentication tokens");
-      }
-      
-      console.log("Login successful after 2FA, storing tokens");
-      localStorage.setItem('accessToken', authData.accessToken);
-      localStorage.setItem('refreshToken', authData.refreshToken);
-      localStorage.removeItem('tempPassword');
-      localStorage.removeItem('isMobileLogin');
-      
-      // If this is a mobile login, redirect to deep link
-      if (isMobileLogin) {
-        console.log("Redirecting to mobile app after 2FA verification");
-        // Construct deep link URL with tokens
-        // const deepLinkUrl = `mobilebrowser://auth?accessToken=${authData.accessToken}&refreshToken=${authData.refreshToken}`;
-        // window.location.href = deepLinkUrl;
-        // Redirect to a regular URL that your GeckoView can intercept
-        window.location.href = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?accessToken=${authData.accessToken}&refreshToken=${authData.refreshToken}&mobile=true`;
-        setIsLoading(false);
-        return true;
-      }
-      
-      // For web login, continue with normal flow
-      await fetchUserProfile();
-      
-      setRequires2FA(false);
-      setTempUserEmail(null);
-      setIsLoading(false);
-      
-      if (data.deviceId) {
-        localStorage.setItem('deviceId', data.deviceId);
-        setDeviceId(data.deviceId);
-      }
-      
-      return true;
-    } catch (error) {
-      console.error("2FA verification error:", error);
-      setIsLoading(false);
-      throw error;
+const verify2FACode = async (token) => {
+  setIsLoading(true);
+  try {
+    if (!tempUserEmail) {
+      throw new Error("No user email found for 2FA verification");
     }
-  };
+    
+    console.log(`Verifying 2FA code for email: ${tempUserEmail}`);
+    
+    const response = await fetch(`${apiUrl}/api/auth/2fa/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: tempUserEmail, token }),
+    });
+    
+    console.log(`2FA verification response status: ${response.status}`);
+    
+    let data;
+    try {
+      const text = await response.text();
+      console.log("2FA verification raw response:", text);
+      data = JSON.parse(text);
+    } catch (parseError) {
+      console.error("Error parsing 2FA verification response:", parseError);
+      throw new Error("Invalid server response during 2FA verification");
+    }
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Invalid 2FA code');
+    }
+    
+    console.log("2FA verification successful, completing login");
+    
+    const tempPassword = localStorage.getItem('tempPassword');
+    if (!tempPassword) {
+      console.error("Temporary password not found in localStorage");
+      throw new Error("Authentication failed: Missing temporary credentials");
+    }
+    
+    // Check if this is a mobile login
+    const isMobileLogin = localStorage.getItem('isMobileLogin') === 'true';
+    
+    // Make a final login call with the tempPassword (same as before).
+    const loginUrl = `${apiUrl}/api/auth/login`;
+    const authResponse = await fetch(loginUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: tempUserEmail, password: tempPassword }),
+    });
+    
+    console.log(`Final login response status: ${authResponse.status}`);
+    
+    let authData;
+    try {
+      const authText = await authResponse.text();
+      console.log("Login response raw text:", authText);
+      authData = JSON.parse(authText);
+    } catch (parseError) {
+      console.error("Error parsing login response:", parseError);
+      throw new Error("Invalid server response during login");
+    }
+    
+    if (!authResponse.ok) {
+      console.error("Authentication failed after 2FA:", authData);
+      throw new Error(authData.message || 'Authentication failed after 2FA');
+    }
+    
+    if (!authData.accessToken || !authData.refreshToken) {
+      console.error("Missing tokens in login response:", authData);
+      throw new Error("Server did not return required authentication tokens");
+    }
+    
+    console.log("Login successful after 2FA, storing tokens");
+    localStorage.setItem('accessToken', authData.accessToken);
+    localStorage.setItem('refreshToken', authData.refreshToken);
+    localStorage.removeItem('tempPassword');
+    localStorage.removeItem('isMobileLogin');
+    
+    //If it's a mobile login, fetch the user profile, then build a URL with displayName/email
+    if (isMobileLogin) {
+      console.log("Redirecting to mobile app after 2FA verification");
+      
+      // Fetch user profile using the new accessToken
+      const userProfile = await fetchUserProfile(); // Will setUser internally as well
+      if (!userProfile) {
+        console.error("Failed to fetch user profile before mobile redirect");
+        throw new Error("Failed to fetch user profile");
+      }
+      
+      // Build final mobile callback with name/email
+      const userId = userProfile._id || userProfile.id || "";
+      const displayName = userProfile.name || userProfile.email || "";
+      const userEmail = userProfile.email || "";
+      
+      const redirectUrl = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?` +
+        `accessToken=${authData.accessToken}` +
+        `&refreshToken=${authData.refreshToken}` +
+        `&userId=${userId}` +
+        `&displayName=${encodeURIComponent(displayName)}` +
+        `&email=${encodeURIComponent(userEmail)}` +
+        `&mobile=true`;
+      
+      console.log("Final mobile redirect URL:", redirectUrl);
+      // Redirect to a regular URL that your GeckoView can intercept
+      window.location.href = redirectUrl;
+      
+      setIsLoading(false);
+      return true;
+    }
+    
+    // 3) Otherwise (web flow), just finish up
+    await fetchUserProfile(); // setUser, etc.
+    
+    setRequires2FA(false);
+    setTempUserEmail(null);
+    setIsLoading(false);
+    
+    // If your server returned a deviceId, store it as well
+    if (data.deviceId) {
+      localStorage.setItem('deviceId', data.deviceId);
+      setDeviceId(data.deviceId);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("2FA verification error:", error);
+    setIsLoading(false);
+    throw error;
+  }
+};
+
   
   // Signup function with secure credentials
   const signup = async ({ email, password }) => {
