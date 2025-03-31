@@ -99,6 +99,8 @@ exports.login = async (req, res) => {
       accessToken, 
       refreshToken,
       deviceId,
+      userId: user._id,
+      displayName: user.name || "",
       isMobile // Include the mobile flag
     });
   } catch (error) {
@@ -204,7 +206,7 @@ exports.googleCallback = async (req, res) => {
     
     // Redirect to frontend with tokens and device ID
     frontendUrl = process.env.REACT_APP_FRONTEND_URL || process.env.REACT_APP_API_URL || 'http://localhost:3000';
-    res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&deviceId=${deviceId}&mobile=${isMobile}`);
+    res.redirect(`${frontendUrl}/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}&deviceId=${deviceId}&mobile=${isMobile}&userId=${user._id}&displayName=${encodeURIComponent(user.name || '')}&email=${encodeURIComponent(user.email || '')}`);
     
   } catch (error) {
     console.error("Google OAuth error:", error);
