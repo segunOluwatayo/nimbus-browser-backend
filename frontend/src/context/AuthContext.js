@@ -621,57 +621,116 @@ const verify2FACode = async (token) => {
 
   // Logout: Invalidate the session on the backend and clear the user state.
   const logout = async (fromMobileApp = false) => {
+    console.log(`Logging out user. Mobile app: ${fromMobileApp}`);
+    
     try {
-      const refreshToken = localStorage.getItem('refreshToken');
-      if (refreshToken) {
-        await fetch(`${apiUrl}/api/auth/logout`, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          },
-          body: JSON.stringify({ refreshToken }),
-        });
-      }
-      // Clear local storage tokens
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('tempPassword');
-      
-      setUser(null);
-      setRequires2FA(false);
-      setTempUserEmail(null);
-      
-      // If this logout was initiated from a mobile app, attempt to redirect back
-      // to notify the app about the logout action
-      if (fromMobileApp) {
-        // Use a small timeout to ensure state is cleared before redirection
-        setTimeout(() => {
-          const redirectUrl = "nimbusbrowser://logout";
-          console.log("Redirecting to mobile app with logout action:", redirectUrl);
-          window.location.href = redirectUrl;
-          setTimeout(() => {
-            window.location.href = "https://nimbus-browser-backend-production.up.railway.app/oauth-callback?action=logout&mobile=true";
-          }, 300);
-        }, 300);
-      }
+        // Check URL parameters to see if this was triggered from a mobile app
+        if (!fromMobileApp) {
+            // Check URL for mobile flag
+            const urlParams = new URLSearchParams(window.location.search);
+            const mobileParam = urlParams.get('mobile');
+            const syncLogoutParam = urlParams.get('sync_logout');
+            
+            if (mobileParam === 'true' || syncLogoutParam === 'true') {
+                console.log("Mobile or sync_logout parameter detected in URL, enabling mobile app mode");
+                fromMobileApp = true;
+            }
+        }
+        
+        // Log the determined status for debugging
+        console.log(`Final mobile status for logout: ${fromMobileApp}`);
+        
+        // Handle token invalidation on server
+        const refreshToken = localStorage.getItem('refreshToken');
+        const accessToken = localStorage.getItem('accessToken');
+        
+        if (refreshToken && accessToken) {
+            console.log("Sending logout request to API...");
+            try {
+                await fetch(`${apiUrl}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({ refreshToken }),
+                });
+                console.log("Server logout request successful");
+            } catch (apiError) {
+                console.error("API logout request failed:", apiError);
+                // Continue with client-side logout anyway
+            }
+        }
+        
+        // Clear local storage tokens
+        console.log("Clearing local auth data...");
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('tempPassword');
+        localStorage.removeItem('isMobileLogin');
+        
+        setUser(null);
+        setRequires2FA(false);
+        setTempUserEmail(null);
+        
+        // If this logout was initiated from a mobile app, attempt to redirect back
+        if (fromMobileApp) {
+            console.log("Preparing mobile app redirect for logout...");
+            
+            // First, try to use the custom scheme to notify the app
+            const customSchemeUrl = "nimbusbrowser://logout";
+            console.log(`Redirecting to mobile app with custom scheme: ${customSchemeUrl}`);
+            
+            // Create an invisible iframe to try the custom scheme without leaving the page
+            const iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = customSchemeUrl;
+            document.body.appendChild(iframe);
+            
+            // After a short delay, redirect to the standard URL that GeckoView will intercept
+            setTimeout(() => {
+                // Create a unique timestamp to prevent caching
+                const timestamp = new Date().getTime();
+                
+                // Standard URL with parameters to signal logout to the app
+                const standardUrl = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?action=logout&mobile=true&t=${timestamp}`;
+                console.log(`Redirecting to standard URL: ${standardUrl}`);
+                
+                // Use the top window to navigate
+                window.top.location.href = standardUrl;
+            }, 500);
+        } else {
+            // For web app, just redirect to login page
+            console.log("Standard web logout completed. Redirecting to login page...");
+            // Optional: add a small delay to ensure state changes are processed
+            setTimeout(() => {
+                window.location.href = '/login';
+            }, 100);
+        }
     } catch (error) {
-      console.error("Logout error:", error);
-      // Even if there's an error, clear local state
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      setUser(null);
-      setRequires2FA(false);
-      setTempUserEmail(null);
-      
-      // Still attempt redirect for mobile app
-      if (fromMobileApp) {
-        setTimeout(() => {
-          window.location.href = "nimbusbrowser://logout";
-        }, 300);
-      }
+        console.error("Unexpected logout error:", error);
+        
+        // Even if there's an error, clear local state
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('tempPassword');
+        localStorage.removeItem('isMobileLogin');
+        
+        setUser(null);
+        setRequires2FA(false);
+        setTempUserEmail(null);
+        
+        // Still attempt redirect for mobile app
+        if (fromMobileApp) {
+            setTimeout(() => {
+                // Create a unique timestamp to prevent caching
+                const timestamp = new Date().getTime();
+                const fallbackUrl = `https://nimbus-browser-backend-production.up.railway.app/oauth-callback?action=logout&mobile=true&error=true&t=${timestamp}`;
+                window.location.href = fallbackUrl;
+            }, 300);
+        }
     }
-  };
+};
 
 const deleteAccount = async () => {
   try {
