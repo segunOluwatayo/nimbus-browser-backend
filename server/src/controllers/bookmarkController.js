@@ -20,12 +20,20 @@ exports.createBookmark = async (req, res) => {
       folder,
     });
     const savedBookmark = await newBookmark.save();
-    res.status(201).json({ message: 'Bookmark created successfully', data: savedBookmark });
+
+    const jsonData = savedBookmark.toObject();
+    jsonData.id = savedBookmark._id;
+
+    res.status(201).json({
+      message: 'Bookmark created successfully',
+      data: jsonData
+    });
   } catch (error) {
     console.error("Error creating bookmark:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 exports.getBookmarkById = async (req, res) => {
   try {
@@ -59,7 +67,12 @@ exports.updateBookmark = async (req, res) => {
 
 exports.deleteBookmark = async (req, res) => {
   try {
-    const deletedBookmark = await Bookmark.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
+    // Use both _id and userId to ensure user owns the bookmark
+    const deletedBookmark = await Bookmark.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id
+    });
+
     if (!deletedBookmark) {
       return res.status(404).json({ message: "Bookmark not found" });
     }
@@ -69,3 +82,4 @@ exports.deleteBookmark = async (req, res) => {
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
