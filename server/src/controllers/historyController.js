@@ -75,29 +75,30 @@ exports.deleteHistoryEntry = async (req, res) => {
 
 exports.deleteHistoryEntryByUrl = async (req, res) => {
   try {
-    const { url } = req.body;
-    
+    // We read `url` from the query string: /history/url?url=...
+    const { url } = req.query;
+
     if (!url) {
-      return res.status(400).json({ message: "URL is required in request body" });
+      return res.status(400).json({ message: "URL is required in query parameter" });
     }
-    
-    console.log(`Deleting history entry with URL: ${url}`);
-    
-    // Only delete the specific URL for this user
+
+    // Delete only this user's entry for that URL
     const result = await History.deleteOne({ 
       userId: req.user.id,
       url: url
     });
-    
+
     if (result.deletedCount === 0) {
       return res.status(404).json({ message: "History entry not found" });
     }
-    
+
     return res.status(200).json({ 
       message: "History entry deleted successfully",
-      data: { url: url, deletedCount: result.deletedCount }
+      data: {
+        url: url,
+        deletedCount: result.deletedCount
+      }
     });
-    
   } catch (error) {
     console.error("Error deleting history entry by URL:", error);
     res.status(500).json({ message: "Internal server error" });

@@ -8,6 +8,7 @@ router.use(authMiddleware);
 router.get('/', historyController.getHistory);
 router.post('/', historyController.addHistory);
 router.delete('/:id', historyController.deleteHistoryEntry);
+router.delete('/url', historyController.deleteHistoryEntryByUrl);
 router.delete('/', historyController.clearHistory);
 
 module.exports = router;
