@@ -3,34 +3,62 @@ const Tab = require('../models/Tab');
 exports.getAllTabs = async (req, res) => {
   try {
     const tabs = await Tab.find({ userId: req.user.id });
-    res.status(200).json({ message: 'Open tabs retrieved successfully', data: tabs });
+
+    // Map each Mongoose document to a plain object with `id = _id`
+    const tabObjects = tabs.map((tabDoc) => {
+      const obj = tabDoc.toObject();
+      obj.id = obj._id;
+      return obj;
+    });
+
+    res.status(200).json({
+      message: 'Open tabs retrieved successfully',
+      data: tabObjects
+    });
   } catch (error) {
     console.error("Error retrieving tabs:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
 
+
 exports.createOrUpdateTab = async (req, res) => {
   try {
     const { url, title, scrollPosition, formData } = req.body;
-    // If a tab with the same URL exists, update it; otherwise, create new.
     let tab = await Tab.findOne({ userId: req.user.id, url });
+
     if (tab) {
       tab.title = title;
       tab.scrollPosition = scrollPosition;
       tab.formData = formData;
-      tab = await tab.save();
-      return res.status(200).json({ message: 'Tab updated successfully', data: tab });
+      const updatedTab = await tab.save();
+
+      // Convert updatedTab so we can add an `id` field:
+      const tabObject = updatedTab.toObject();
+      tabObject.id = tabObject._id;
+
+      return res.status(200).json({
+        message: 'Tab updated successfully',
+        data: tabObject
+      });
     } else {
-      tab = new Tab({
+      const newTab = new Tab({
         userId: req.user.id,
         url,
         title,
         scrollPosition,
         formData,
       });
-      const savedTab = await tab.save();
-      return res.status(201).json({ message: 'Tab created successfully', data: savedTab });
+      const savedTab = await newTab.save();
+
+      // Convert savedTab so we can add an `id` field:
+      const tabObject = savedTab.toObject();
+      tabObject.id = tabObject._id;
+
+      return res.status(201).json({
+        message: 'Tab created successfully',
+        data: tabObject
+      });
     }
   } catch (error) {
     console.error("Error creating/updating tab:", error);
@@ -45,13 +73,23 @@ exports.updateTabById = async (req, res) => {
       req.body,
       { new: true }
     );
-    if (!updatedTab) return res.status(404).json({ message: "Tab not found" });
-    res.status(200).json({ message: 'Tab updated successfully', data: updatedTab });
+    if (!updatedTab) {
+      return res.status(404).json({ message: "Tab not found" });
+    }
+
+    const tabObject = updatedTab.toObject();
+    tabObject.id = tabObject._id;
+
+    res.status(200).json({
+      message: 'Tab updated successfully',
+      data: tabObject
+    });
   } catch (error) {
     console.error("Error updating tab:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 exports.deleteTab = async (req, res) => {
   try {
