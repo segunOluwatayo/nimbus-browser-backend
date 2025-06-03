@@ -44,8 +44,7 @@ exports.uploadMiddleware = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  }
+    fileSize: 12 * 1024 * 1024 }, // 12 MB
 }).single('profilePicture');
 
 // Get user profile
