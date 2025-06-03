@@ -1,5 +1,5 @@
-// src/components/ProfileHeader.js
-import React, { useState, useContext, useEffect } from 'react';
+// Fixed ProfileHeader.js
+import React, { useState, useContext } from 'react';
 import { 
   Box, 
   Avatar, 
@@ -37,20 +37,15 @@ const ProfileHeader = ({ user, onLogout }) => {
   // State for the photo dialog
   const [photoDialogOpen, setPhotoDialogOpen] = useState(false);
   
-  // State for the temporary selected picture (before saving)
-  const [tempProfilePicture, setTempProfilePicture] = useState(null);
+  // FIXED: Separate states for preview and actual operations
+  const [previewImage, setPreviewImage] = useState(null); // For showing preview only
+  const [isRemoving, setIsRemoving] = useState(false); // Track if user wants to remove
   
   // State for error handling
   const [error, setError] = useState('');
   
   // State for selected file
   const [selectedFile, setSelectedFile] = useState(null);
-
-  // Debug logging
-  useEffect(() => {
-    console.log('ProfileHeader - Current user:', user);
-    console.log('ProfileHeader - Profile picture URL:', user?.profilePicture);
-  }, [user]);
   
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -62,14 +57,17 @@ const ProfileHeader = ({ user, onLogout }) => {
   
   const handlePhotoDialogOpen = () => {
     setPhotoDialogOpen(true);
-    setTempProfilePicture(user?.profilePicture || null);
+    // FIXED: Initialize preview with current user photo, not temp state
+    setPreviewImage(user?.profilePicture || null);
+    setIsRemoving(false);
     setError('');
     setSelectedFile(null);
   };
   
   const handlePhotoDialogClose = () => {
     setPhotoDialogOpen(false);
-    setTempProfilePicture(null);
+    setPreviewImage(null);
+    setIsRemoving(false);
     setError('');
     setSelectedFile(null);
   };
@@ -91,19 +89,21 @@ const ProfileHeader = ({ user, onLogout }) => {
       
       setError('');
       setSelectedFile(file);
+      setIsRemoving(false);
       
-      // Preview the image
+      // FIXED: Create preview for dialog only - don't mix with user state
       const reader = new FileReader();
       reader.onload = (e) => {
-        setTempProfilePicture(e.target.result);
+        setPreviewImage(e.target.result); // This is just for preview in dialog
       };
       reader.readAsDataURL(file);
     }
   };
   
   const handleRemovePhoto = () => {
-    setTempProfilePicture(null);
+    setPreviewImage(null);
     setSelectedFile(null);
+    setIsRemoving(true);
   };
   
   const handleSavePhoto = async () => {
@@ -112,27 +112,38 @@ const ProfileHeader = ({ user, onLogout }) => {
       
       if (selectedFile) {
         // Upload new profile picture
-        console.log('Uploading profile picture...');
-        const updatedUser = await uploadProfilePicture(selectedFile);
-        console.log('Profile picture uploaded successfully:', updatedUser);
-      } else if (tempProfilePicture === null && user?.profilePicture) {
+        console.log('📤 Uploading new profile picture...');
+        await uploadProfilePicture(selectedFile);
+        console.log('✅ Profile picture uploaded successfully');
+      } else if (isRemoving && user?.profilePicture) {
         // Delete existing profile picture
-        console.log('Deleting profile picture...');
-        const updatedUser = await deleteProfilePicture();
-        console.log('Profile picture deleted successfully:', updatedUser);
+        console.log('🗑️ Removing profile picture...');
+        await deleteProfilePicture();
+        console.log('✅ Profile picture removed successfully');
       }
       
       setPhotoDialogOpen(false);
     } catch (err) {
-      console.error('Error updating profile picture:', err);
+      console.error('❌ Error updating profile picture:', err);
       setError(err.message || 'Failed to update profile picture');
     }
   };
   
   const displayName = user?.name || user?.email || 'User';
   
-  // Add a key to force re-render when profile picture changes
-  const avatarKey = `avatar-${user?.profilePicture || 'default'}-${Date.now()}`;
+  // FIXED: Always use the user's actual profilePicture, never base64 data
+  const currentProfilePicture = user?.profilePicture || '';
+  
+  // For the dialog preview, show either the preview image or current user image
+  const dialogPreviewImage = previewImage || currentProfilePicture;
+  
+  console.log('🖼️ Profile Header Debug:', {
+    userProfilePicture: user?.profilePicture,
+    currentProfilePicture,
+    dialogPreviewImage: dialogPreviewImage?.substring(0, 50) + '...',
+    isPreviewBase64: dialogPreviewImage?.startsWith('data:'),
+    isUserPictureBase64: currentProfilePicture?.startsWith('data:')
+  });
   
   return (
     <Paper 
@@ -152,8 +163,7 @@ const ProfileHeader = ({ user, onLogout }) => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Avatar 
-            key={avatarKey}
-            src={user?.profilePicture ? `${user.profilePicture}?t=${Date.now()}` : ''} 
+            src={currentProfilePicture} // FIXED: Always use actual user profile picture
             alt={displayName}
             sx={{ 
               width: 56, 
@@ -163,10 +173,6 @@ const ProfileHeader = ({ user, onLogout }) => {
               bgcolor: theme.palette.primary.main 
             }}
             onClick={handlePhotoDialogOpen}
-            onError={(e) => {
-              console.error('Avatar image failed to load:', user?.profilePicture);
-              e.target.src = ''; // Clear the src to show initials instead
-            }}
           >
             {displayName.charAt(0).toUpperCase()}
           </Avatar>
@@ -227,7 +233,7 @@ const ProfileHeader = ({ user, onLogout }) => {
             
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 2 }}>
               <Avatar 
-                src={tempProfilePicture ? `${tempProfilePicture}?t=${Date.now()}` : ''} 
+                src={dialogPreviewImage} // FIXED: Use proper preview logic
                 alt={displayName}
                 sx={{ 
                   width: 100, 
@@ -258,7 +264,7 @@ const ProfileHeader = ({ user, onLogout }) => {
                   color="error"
                   onClick={handleRemovePhoto}
                   startIcon={<DeleteIcon />}
-                  disabled={!tempProfilePicture || isLoading}
+                  disabled={!dialogPreviewImage || isLoading}
                 >
                   Remove
                 </Button>

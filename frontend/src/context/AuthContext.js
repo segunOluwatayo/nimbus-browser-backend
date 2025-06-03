@@ -145,6 +145,13 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
         throw new Error("No access token found");
       }
       
+      console.log('📤 Starting profile picture upload...');
+      console.log('📁 File details:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+      });
+      
       const formData = new FormData();
       formData.append('profilePicture', file);
       
@@ -170,9 +177,22 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
           
           if (newResponse.ok) {
             const data = await newResponse.json();
-            setUser(data.user);
-            setIsLoading(false);
-            return data.user;
+            console.log('✅ Upload response after token refresh:', data);
+            
+            // CRITICAL: Validate the response before updating state
+            if (data.user && data.user.profilePicture) {
+              if (data.user.profilePicture.startsWith('data:')) {
+                console.error('❌ CRITICAL: Server returned base64 data instead of URL!');
+                throw new Error("Server error: Invalid image URL format received");
+              }
+              
+              console.log('💾 Updating user state with URL:', data.user.profilePicture);
+              setUser(data.user);
+              setIsLoading(false);
+              return data.user;
+            } else {
+              throw new Error("Invalid response format from server");
+            }
           }
         }
         // If refresh failed, throw error
@@ -185,12 +205,35 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
       }
       
       const data = await response.json();
-      setUser(data.user);
-      setIsLoading(false);
-      return data.user;
+      console.log('✅ Upload response:', data);
+      
+      // CRITICAL: Validate the response before updating state
+      if (data.user && data.user.profilePicture) {
+        if (data.user.profilePicture.startsWith('data:')) {
+          console.error('❌ CRITICAL: Server returned base64 data instead of URL!');
+          console.error('🔍 Received URL:', data.user.profilePicture.substring(0, 100) + '...');
+          throw new Error("Server error: Invalid image URL format received");
+        }
+        
+        // Validate it's a proper URL
+        try {
+          new URL(data.user.profilePicture);
+          console.log('✅ Valid URL received:', data.user.profilePicture);
+        } catch (urlError) {
+          console.error('❌ Invalid URL format received:', data.user.profilePicture);
+          throw new Error("Server returned an invalid URL format");
+        }
+        
+        console.log('💾 Updating user state with validated URL');
+        setUser(data.user);
+        setIsLoading(false);
+        return data.user;
+      } else {
+        throw new Error("Invalid response format from server");
+      }
     } catch (error) {
       setIsLoading(false);
-      console.error("Error uploading profile picture:", error);
+      console.error("❌ Error uploading profile picture:", error);
       throw error;
     }
   };

@@ -109,15 +109,34 @@ exports.updateUserProfile = async (req, res) => {
 // Upload profile picture
 exports.uploadProfilePicture = async (req, res) => {
   try {
+    console.log('=== Profile Picture Upload Debug ===');
+    
     // File upload is handled by multer middleware
     if (!req.file) {
+      console.log('❌ No file uploaded');
       return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    console.log('📁 File details:', {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path
+    });
+
+    // Verify file exists after upload
+    const fileExists = fs.existsSync(req.file.path);
+    console.log('✅ File exists on disk:', fileExists);
+    
+    if (!fileExists) {
+      console.log('❌ File was not saved to disk');
+      return res.status(500).json({ message: "File upload failed" });
     }
 
     // Get the correct base URL for production vs development
     let baseUrl;
     if (process.env.NODE_ENV === 'production') {
-      // ✅ Actually assign the URL to baseUrl
       baseUrl = process.env.APP_URL || 'https://nimbus-browser-backend-production.up.railway.app';
     } else {
       baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
@@ -126,7 +145,33 @@ exports.uploadProfilePicture = async (req, res) => {
     const relativePath = `/uploads/profile-pictures/${path.basename(req.file.path)}`;
     const profilePictureUrl = `${baseUrl}${relativePath}`;
 
-    console.log('Generated profile picture URL:', profilePictureUrl); // For debugging
+    console.log('🔗 Generated profile picture URL:', profilePictureUrl);
+    
+    // CRITICAL: Validate that we're not saving base64 data
+    if (profilePictureUrl.startsWith('data:')) {
+      console.error('❌ CRITICAL: Attempted to save base64 data as URL!');
+      if (req.file) {
+        fs.unlinkSync(req.file.path); // Cleanup
+      }
+      return res.status(500).json({ 
+        message: "Invalid URL format - base64 data detected",
+        debug: { url: profilePictureUrl.substring(0, 100) + '...' }
+      });
+    }
+
+    // Validate URL format
+    try {
+      new URL(profilePictureUrl);
+    } catch (urlError) {
+      console.error('❌ Invalid URL format:', profilePictureUrl);
+      if (req.file) {
+        fs.unlinkSync(req.file.path); // Cleanup
+      }
+      return res.status(500).json({ 
+        message: "Invalid URL format generated",
+        debug: { url: profilePictureUrl }
+      });
+    }
 
     // Update user profile with the new picture URL
     const user = await User.findByIdAndUpdate(
@@ -136,20 +181,29 @@ exports.uploadProfilePicture = async (req, res) => {
     ).select('-password');
 
     if (!user) {
-      // Remove the uploaded file if user not found
+      console.log('❌ User not found, cleaning up file');
       fs.unlinkSync(req.file.path);
       return res.status(404).json({ message: "User not found" });
     }
 
+    console.log('✅ Profile picture uploaded successfully');
+    console.log('💾 Saved URL to database:', user.profilePicture);
+    console.log('=== End Debug ===');
+
     res.status(200).json({ 
       message: "Profile picture uploaded successfully", 
-      user 
+      user
     });
   } catch (error) {
-    console.error("Error uploading profile picture:", error);
+    console.error("❌ Error uploading profile picture:", error);
     // Remove the uploaded file in case of error
     if (req.file) {
-      fs.unlinkSync(req.file.path);
+      try {
+        fs.unlinkSync(req.file.path);
+        console.log('🧹 Cleaned up failed upload file');
+      } catch (cleanupError) {
+        console.error('❌ Failed to cleanup file:', cleanupError);
+      }
     }
     res.status(500).json({ message: "Internal server error" });
   }
