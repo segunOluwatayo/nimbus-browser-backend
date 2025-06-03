@@ -117,13 +117,9 @@ exports.uploadProfilePicture = async (req, res) => {
     // Get the correct base URL for production vs development
     let baseUrl;
     if (process.env.NODE_ENV === 'production') {
-      // Use the Railway production URL or APP_URL environment variable
-      baseUrl = process.env.APP_URL || 'https://nimbus-browser-backend-production.up.railway.app';
-    } else {
-      // Use the development URL or localhost
-      baseUrl = process.env.REACT_APP_FRONTEND_URL || 'http://localhost:3001';
+      // Use the Railway production URL 
+      'https://nimbus-browser-backend-production.up.railway.app';
     }
-
     const relativePath = `/uploads/profile-pictures/${path.basename(req.file.path)}`;
     const profilePictureUrl = `${baseUrl}${relativePath}`;
 

@@ -17,7 +17,7 @@ const securityMiddleware = (app) => {
           connectSrc: ["'self'", process.env.REACT_APP_API_URL || "*"],
           scriptSrc: ["'self'", "'unsafe-inline'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:"],
+          imgSrc: ["'self'", "data:", "https:", "blob:"],
           fontSrc: ["'self'", "data:"],
         },
       },
