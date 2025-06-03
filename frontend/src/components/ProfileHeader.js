@@ -1,5 +1,5 @@
 // src/components/ProfileHeader.js
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { 
   Box, 
   Avatar, 
@@ -45,6 +45,12 @@ const ProfileHeader = ({ user, onLogout }) => {
   
   // State for selected file
   const [selectedFile, setSelectedFile] = useState(null);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('ProfileHeader - Current user:', user);
+    console.log('ProfileHeader - Profile picture URL:', user?.profilePicture);
+  }, [user]);
   
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -106,19 +112,27 @@ const ProfileHeader = ({ user, onLogout }) => {
       
       if (selectedFile) {
         // Upload new profile picture
-        await uploadProfilePicture(selectedFile);
+        console.log('Uploading profile picture...');
+        const updatedUser = await uploadProfilePicture(selectedFile);
+        console.log('Profile picture uploaded successfully:', updatedUser);
       } else if (tempProfilePicture === null && user?.profilePicture) {
         // Delete existing profile picture
-        await deleteProfilePicture();
+        console.log('Deleting profile picture...');
+        const updatedUser = await deleteProfilePicture();
+        console.log('Profile picture deleted successfully:', updatedUser);
       }
       
       setPhotoDialogOpen(false);
     } catch (err) {
+      console.error('Error updating profile picture:', err);
       setError(err.message || 'Failed to update profile picture');
     }
   };
   
   const displayName = user?.name || user?.email || 'User';
+  
+  // Add a key to force re-render when profile picture changes
+  const avatarKey = `avatar-${user?.profilePicture || 'default'}-${Date.now()}`;
   
   return (
     <Paper 
@@ -138,7 +152,8 @@ const ProfileHeader = ({ user, onLogout }) => {
       >
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
           <Avatar 
-            src={user?.profilePicture || ''} 
+            key={avatarKey}
+            src={user?.profilePicture ? `${user.profilePicture}?t=${Date.now()}` : ''} 
             alt={displayName}
             sx={{ 
               width: 56, 
@@ -148,6 +163,10 @@ const ProfileHeader = ({ user, onLogout }) => {
               bgcolor: theme.palette.primary.main 
             }}
             onClick={handlePhotoDialogOpen}
+            onError={(e) => {
+              console.error('Avatar image failed to load:', user?.profilePicture);
+              e.target.src = ''; // Clear the src to show initials instead
+            }}
           >
             {displayName.charAt(0).toUpperCase()}
           </Avatar>
@@ -208,7 +227,7 @@ const ProfileHeader = ({ user, onLogout }) => {
             
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', my: 2 }}>
               <Avatar 
-                src={tempProfilePicture} 
+                src={tempProfilePicture ? `${tempProfilePicture}?t=${Date.now()}` : ''} 
                 alt={displayName}
                 sx={{ 
                   width: 100, 

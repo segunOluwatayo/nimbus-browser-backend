@@ -114,14 +114,38 @@ exports.uploadProfilePicture = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Get the correct base URL for production vs development
+    // Get the correct base URL - try multiple environment variables and fallbacks
     let baseUrl;
-    if (process.env.NODE_ENV === 'production') {
-      // Use the Railway production URL 
-      'https://nimbus-browser-backend-production.up.railway.app';
+    
+    // Try to get the base URL from the request headers first (most reliable)
+    const protocol = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http');
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    
+    if (host) {
+      baseUrl = `${protocol}://${host}`;
+      console.log('Using request-based URL:', baseUrl);
+    } else {
+      // Fallback to environment variables
+      baseUrl = process.env.APP_URL || 
+                process.env.REACT_APP_API_URL || 
+                'https://nimbus-browser-backend-production.up.railway.app';
+      console.log('Using environment variable URL:', baseUrl);
     }
+    
+    // Log all relevant environment variables for debugging
+    console.log('Environment check:', {
+      NODE_ENV: process.env.NODE_ENV,
+      APP_URL: process.env.APP_URL,
+      REACT_APP_API_URL: process.env.REACT_APP_API_URL,
+      host: req.headers.host,
+      'x-forwarded-host': req.headers['x-forwarded-host'],
+      'x-forwarded-proto': req.headers['x-forwarded-proto']
+    });
+    
     const relativePath = `/uploads/profile-pictures/${path.basename(req.file.path)}`;
     const profilePictureUrl = `${baseUrl}${relativePath}`;
+
+    console.log('Final profile picture URL generated:', profilePictureUrl); // For debugging
 
     // Update user profile with the new picture URL
     const user = await User.findByIdAndUpdate(
