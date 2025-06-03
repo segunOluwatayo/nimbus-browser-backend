@@ -50,7 +50,6 @@ function Dashboard() {
   
   const [loading, setLoading] = useState(true);
   const [deviceLoading, setDeviceLoading] = useState(true);
-  const [profileData, setProfileData] = useState(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [savingName, setSavingName] = useState(false);
@@ -79,16 +78,14 @@ function Dashboard() {
     }
   }, [navigate]);
 
-  // Load user profile
+  // FIXED: Simplified user profile loading - just ensure we have user data
   useEffect(() => {
     const loadUserProfile = async () => {
-      // FIXED: Only fetch profile if we don't have user data AND we're initially loading
-      if (loading && !user && !profileData) {
+      if (!user && loading) {
         console.log('Loading user profile...');
         setError('');
         
         try {
-          // Log token info for debugging
           const accessToken = localStorage.getItem('accessToken');
           console.log(`Using access token: ${accessToken ? accessToken.substring(0, 10) + '...' : 'not found'}`);
           
@@ -99,39 +96,35 @@ function Dashboard() {
             return;
           }
           
-          const userData = await fetchUserProfile();
-          console.log('User profile data received:', userData);
-          
-          if (userData && (userData._id || userData.id)) {
-            console.log('Setting profile data with valid user data');
-            setProfileData(userData);
-            setDisplayName(userData?.name || '');
-          } else {
-            console.error('Invalid user data received:', userData);
-            setError('Unable to load profile data correctly.');
-          }
+          await fetchUserProfile();
+          console.log('User profile loaded successfully');
         } catch (error) {
           console.error('Error fetching user profile:', error);
           setError(`Failed to load profile: ${error.message}`);
         } finally {
           setLoading(false);
         }
-      } else if (user && !profileData) {
-        // FIXED: If we have user data from context but not in local state, use it
-        console.log('Using existing user data from context');
-        setProfileData(user);
-        setDisplayName(user?.name || '');
+      } else if (user) {
+        // We have user data, ensure loading is false
         setLoading(false);
       }
     };
     
     loadUserProfile();
-  }, [fetchUserProfile, loading, user, profileData]);
+  }, [fetchUserProfile, user, loading]);
+
+  // FIXED: Update displayName whenever user data changes (including profile picture updates)
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.name || '');
+      console.log('Dashboard: User data updated, displayName set to:', user.name || '');
+    }
+  }, [user]);
 
   // Load connected devices
   useEffect(() => {
     const loadConnectedDevices = async () => {
-      if (!loading && (profileData || user)) {
+      if (!loading && user) {
         setDeviceLoading(true);
         try {
           // Update device activity
@@ -151,7 +144,7 @@ function Dashboard() {
     };
     
     loadConnectedDevices();
-  }, [getConnectedDevices, loading, profileData, user, updateDeviceActivity]);
+  }, [getConnectedDevices, loading, user, updateDeviceActivity]);
 
   const handleLogout = () => {
      // Check if this request originated from a mobile app
@@ -172,7 +165,7 @@ function Dashboard() {
     setIsEditingName(false);
     setError('');
     // Reset to original name
-    setDisplayName(profileData?.name || '');
+    setDisplayName(user?.name || '');
   };
 
   const saveDisplayName = async () => {
@@ -211,11 +204,8 @@ function Dashboard() {
         throw new Error(data.message || "Failed to update profile");
       }
       
-      // Update local state with new user data
-      setProfileData(prevData => ({
-        ...prevData,
-        name: displayName
-      }));
+      // FIXED: Refresh user profile from AuthContext instead of managing local state
+      await fetchUserProfile();
       
       setIsEditingName(false);
     } catch (error) {
@@ -273,9 +263,8 @@ function Dashboard() {
     );
   }
 
-  // Use both user contexts to ensure we have data
-  const userData = profileData || user || {};
-  const hasUserData = userData && (userData.name || userData.email);
+  // FIXED: Use user directly from AuthContext - it's always up to date
+  const hasUserData = user && (user.name || user.email);
 
   // If we still don't have user data after loading and there's an error, show error screen
   if (!hasUserData && error) {
@@ -326,7 +315,7 @@ function Dashboard() {
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {hasUserData && (
         <ProfileHeader 
-          user={userData} 
+          user={user}
           onLogout={handleLogout} 
         />
       )}
@@ -388,7 +377,7 @@ function Dashboard() {
             ) : (
               <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1 }}>
                 <Typography variant="body1">
-                  {userData.name || userData.email || 'User'}
+                  {user?.name || user?.email || 'User'}  {/* FIXED: Use user directly */}
                 </Typography>
                 <Button 
                   size="small"
@@ -406,7 +395,7 @@ function Dashboard() {
               Email:
             </Typography>
             <Typography variant="body1">
-              {userData.email || 'No email available'}
+              {user?.email || 'No email available'}  {/* FIXED: Use user directly */}
             </Typography>
           </Box>
         </Paper>
