@@ -136,107 +136,128 @@ const [deviceId, setDeviceId] = useState(localStorage.getItem('deviceId') || '')
     }
   }, [apiUrl, refreshAccessToken]);
 
-  // Upload profile picture
-  const uploadProfilePicture = async (file) => {
-    try {
-      setIsLoading(true);
-      const accessToken = localStorage.getItem('accessToken');
-      if (!accessToken) {
-        throw new Error("No access token found");
-      }
-      
-      console.log('📤 Starting profile picture upload...');
-      console.log('📁 File details:', {
-        name: file.name,
-        size: file.size,
-        type: file.type
-      });
-      
-      const formData = new FormData();
-      formData.append('profilePicture', file);
-      
-      const response = await fetch(`${apiUrl}/api/users/profile-picture`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        },
-        body: formData
-      });
-      
-      if (response.status === 401) {
-        // Try refreshing the token if unauthorized
-        const refreshed = await refreshAccessToken();
-        if (refreshed) {
-          const newResponse = await fetch(`${apiUrl}/api/users/profile-picture`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-            },
-            body: formData
-          });
+const uploadProfilePicture = async (file) => {
+  try {
+    setIsLoading(true);
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      throw new Error("No access token found");
+    }
+    
+    console.log('📤 Starting profile picture upload...');
+    console.log('📁 File details:', {
+      name: file.name,
+      size: file.size,
+      type: file.type
+    });
+    
+    const formData = new FormData();
+    formData.append('profilePicture', file);
+    
+    const response = await fetch(`${apiUrl}/api/users/profile-picture`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: formData
+    });
+    
+    if (response.status === 401) {
+      // Try refreshing the token if unauthorized
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        const newResponse = await fetch(`${apiUrl}/api/users/profile-picture`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          },
+          body: formData
+        });
+        
+        if (newResponse.ok) {
+          const data = await newResponse.json();
+          console.log('✅ Upload response after token refresh:', data);
           
-          if (newResponse.ok) {
-            const data = await newResponse.json();
-            console.log('✅ Upload response after token refresh:', data);
-            
-            // CRITICAL: Validate the response before updating state
-            if (data.user && data.user.profilePicture) {
-              if (data.user.profilePicture.startsWith('data:')) {
-                console.error('❌ CRITICAL: Server returned base64 data instead of URL!');
-                throw new Error("Server error: Invalid image URL format received");
-              }
-              
-              console.log('💾 Updating user state with URL:', data.user.profilePicture);
-              setUser(data.user);
-              setIsLoading(false);
-              return data.user;
-            } else {
-              throw new Error("Invalid response format from server");
+          // CRITICAL: Validate the response before updating state
+          if (data.user && data.user.profilePicture) {
+            if (data.user.profilePicture.startsWith('data:')) {
+              console.error('❌ CRITICAL: Server returned base64 data instead of URL!');
+              throw new Error("Server error: Invalid image URL format received");
             }
+            
+            console.log('💾 Updating user state with URL:', data.user.profilePicture);
+            
+            // FIXED: Update user state more reliably
+            setUser(prevUser => ({
+              ...prevUser,
+              ...data.user,
+              profilePicture: data.user.profilePicture
+            }));
+            
+            setIsLoading(false);
+            return data.user;
+          } else {
+            throw new Error("Invalid response format from server");
           }
         }
-        // If refresh failed, throw error
-        throw new Error("Session expired. Please login again.");
       }
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to upload profile picture");
-      }
-      
-      const data = await response.json();
-      console.log('✅ Upload response:', data);
-      
-      // CRITICAL: Validate the response before updating state
-      if (data.user && data.user.profilePicture) {
-        if (data.user.profilePicture.startsWith('data:')) {
-          console.error('❌ CRITICAL: Server returned base64 data instead of URL!');
-          console.error('🔍 Received URL:', data.user.profilePicture.substring(0, 100) + '...');
-          throw new Error("Server error: Invalid image URL format received");
-        }
-        
-        // Validate it's a proper URL
-        try {
-          new URL(data.user.profilePicture);
-          console.log('✅ Valid URL received:', data.user.profilePicture);
-        } catch (urlError) {
-          console.error('❌ Invalid URL format received:', data.user.profilePicture);
-          throw new Error("Server returned an invalid URL format");
-        }
-        
-        console.log('💾 Updating user state with validated URL');
-        setUser(data.user);
-        setIsLoading(false);
-        return data.user;
-      } else {
-        throw new Error("Invalid response format from server");
-      }
-    } catch (error) {
-      setIsLoading(false);
-      console.error("❌ Error uploading profile picture:", error);
-      throw error;
+      // If refresh failed, throw error
+      throw new Error("Session expired. Please login again.");
     }
-  };
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to upload profile picture");
+    }
+    
+    const data = await response.json();
+    console.log('✅ Upload response:', data);
+    
+    // CRITICAL: Validate the response before updating state
+    if (data.user && data.user.profilePicture) {
+      if (data.user.profilePicture.startsWith('data:')) {
+        console.error('❌ CRITICAL: Server returned base64 data instead of URL!');
+        console.error('🔍 Received URL:', data.user.profilePicture.substring(0, 100) + '...');
+        throw new Error("Server error: Invalid image URL format received");
+      }
+      
+      // Validate it's a proper URL
+      try {
+        new URL(data.user.profilePicture);
+        console.log('✅ Valid URL received:', data.user.profilePicture);
+      } catch (urlError) {
+        console.error('❌ Invalid URL format received:', data.user.profilePicture);
+        throw new Error("Server returned an invalid URL format");
+      }
+      
+      console.log('💾 Updating user state with validated URL');
+      
+      // FIXED: Update user state more reliably and prevent race conditions
+      setUser(prevUser => {
+        const updatedUser = {
+          ...prevUser,
+          ...data.user,
+          profilePicture: data.user.profilePicture
+        };
+        console.log('🔄 User state updated:', updatedUser.profilePicture);
+        return updatedUser;
+      });
+      
+      setIsLoading(false);
+      
+      // FIXED: Force a small delay to ensure state is updated before any other operations
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      return data.user;
+    } else {
+      throw new Error("Invalid response format from server");
+    }
+  } catch (error) {
+    setIsLoading(false);
+    console.error("❌ Error uploading profile picture:", error);
+    throw error;
+  }
+};
 
   // Delete profile picture
   const deleteProfilePicture = async () => {

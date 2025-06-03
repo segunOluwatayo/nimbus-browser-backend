@@ -82,7 +82,8 @@ function Dashboard() {
   // Load user profile
   useEffect(() => {
     const loadUserProfile = async () => {
-      if (loading) {
+      // FIXED: Only fetch profile if we don't have user data AND we're initially loading
+      if (loading && !user && !profileData) {
         console.log('Loading user profile...');
         setError('');
         
@@ -115,11 +116,17 @@ function Dashboard() {
         } finally {
           setLoading(false);
         }
+      } else if (user && !profileData) {
+        // FIXED: If we have user data from context but not in local state, use it
+        console.log('Using existing user data from context');
+        setProfileData(user);
+        setDisplayName(user?.name || '');
+        setLoading(false);
       }
     };
     
     loadUserProfile();
-  }, [fetchUserProfile, loading]);
+  }, [fetchUserProfile, loading, user, profileData]);
 
   // Load connected devices
   useEffect(() => {
