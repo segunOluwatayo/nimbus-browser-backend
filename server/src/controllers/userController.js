@@ -114,14 +114,19 @@ exports.uploadProfilePicture = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    // Get the correct base URL for production vs development (FIXED)
-    const isProduction = process.env.NODE_ENV === 'production';
-    const baseUrl = isProduction
-      ? 'https://nimbus-browser-backend-production.up.railway.app'
-      : (process.env.REACT_APP_API_URL || "http://localhost:3000");
-    
+    // Get the correct base URL for production vs development
+    let baseUrl;
+    if (process.env.NODE_ENV === 'production') {
+      // ✅ Actually assign the URL to baseUrl
+      baseUrl = process.env.APP_URL || 'https://nimbus-browser-backend-production.up.railway.app';
+    } else {
+      baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+    }
+
     const relativePath = `/uploads/profile-pictures/${path.basename(req.file.path)}`;
     const profilePictureUrl = `${baseUrl}${relativePath}`;
+
+    console.log('Generated profile picture URL:', profilePictureUrl); // For debugging
 
     // Update user profile with the new picture URL
     const user = await User.findByIdAndUpdate(
