@@ -1,5 +1,4 @@
 import React, { useState, useContext, useEffect } from 'react';
-import {useSearchParams } from 'react-router-dom';
 import { 
   Container, 
   Typography, 
@@ -27,7 +26,7 @@ import {
   Google as GoogleIcon
 } from '@mui/icons-material';
 import { AuthContext } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import TwoFactorAuth from '../components/TwoFactorAuth';
 
@@ -54,6 +53,7 @@ function Login() {
     tempUserEmail 
   } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
@@ -64,14 +64,18 @@ function Login() {
   const [passwordStrength, setPasswordStrength] = useState({ strength: '', score: 0 });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [searchParams] = useSearchParams();
-  const isMobileFromUrl = searchParams.get('mobile') === 'true';
-
-  console.log("isMobileFromUrl:", isMobileFromUrl, typeof isMobileFromUrl);
 
   useEffect(() => {
     setPasswordStrength(getPasswordStrength(password));
   }, [password]);
+
+  // Check for error parameter in URL (from OAuth callback)
+  useEffect(() => {
+    const urlError = searchParams.get('error');
+    if (urlError === 'auth_failed') {
+      setError('Authentication failed. Please try again.');
+    }
+  }, [searchParams]);
 
   // If we need to cancel 2FA flow
   const handleCancel2FA = () => {
@@ -106,7 +110,7 @@ function Login() {
         await signup({ email, password });
         // Don't navigate yet - we'll wait for 2FA verification
       } else {
-        await login({ email, password }, isMobileFromUrl);
+        await login({ email, password });
         // Don't navigate yet - we'll wait for 2FA verification
       }
     } catch (err) {
@@ -119,6 +123,10 @@ function Login() {
     // Use a fallback URL if the environment variable isn't defined
     const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
     window.location.href = `${apiUrl}/api/auth/google`;
+  };
+
+  const handleForgotPassword = () => {
+    navigate('/forgot-password');
   };
 
   const getStrengthColor = () => {
@@ -351,7 +359,7 @@ function Login() {
                     component="button" 
                     variant="body2" 
                     type="button"
-                    onClick={() => console.log('Forgot password clicked')}
+                    onClick={handleForgotPassword}
                     sx={{ textDecoration: 'none' }}
                     disabled={isLoading}
                   >
