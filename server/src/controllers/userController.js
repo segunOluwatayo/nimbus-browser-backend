@@ -78,7 +78,7 @@ exports.getUserProfile = async (req, res) => {
 // Update user profile
 exports.updateUserProfile = async (req, res) => {
   try {
-    const { name } = req.body;
+    const { name, profilePicture } = req.body;
     
     // Validate input
     if (name && (typeof name !== 'string' || name.length > 50)) {
@@ -86,11 +86,19 @@ exports.updateUserProfile = async (req, res) => {
     }
     
     // Find and update the user
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user.id,
-      { $set: { name } },
-      { new: true }
-    ).select('-password');
+    // const updatedUser = await User.findByIdAndUpdate(
+    //   req.user.id,
+    //   { $set: { name } },
+    //   { new: true }
+    // ).select('-password');
+    const update = {};
+    if (name !== undefined)           update.name           = name;
+    if (profilePicture !== undefined) update.profilePicture = profilePicture;
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user.id,
+       { $set: update },                                
+    { new: true }
+ ).select('-password');
     
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
